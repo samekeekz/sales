@@ -1,0 +1,289 @@
+"use client"
+
+import { useState, useMemo, useSyncExternalStore, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { PlusIcon, PencilIcon, TrashIcon, RotateCcwIcon } from "lucide-react"
+import { toast } from "sonner"
+import { useAuth } from "@/components/auth-provider"
+import { getProducts, addProduct, updateProduct, softDeleteProduct, restoreProduct, generateId } from "@/lib/storage"
+import { formatCurrency } from "@/lib/calculations"
+
+function subscribe(cb: () => void) {
+  window.addEventListener("storage", cb)
+  return () => window.removeEventListener("storage", cb)
+}
+
+function getSnapshot() {
+  return localStorage.getItem("products") || "[]"
+}
+
+function getServerSnapshot() {
+  return "[]"
+}
+
+export default function ProductsPage() {
+  const { isAdmin } = useAuth()
+  const router = useRouter()
+
+  const [newName, setNewName] = useState("")
+  const [newPrice, setNewPrice] = useState("")
+  const [showDeleted, setShowDeleted] = useState(false)
+
+  // Edit dialog state
+  const [editProduct, setEditProduct] = useState<{ id: string; name: string; price: string } | null>(null)
+
+  useEffect(() => {
+    if (!isAdmin) router.push("/dashboard")
+  }, [isAdmin, router])
+
+  const productsRaw = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+
+  const { active, deleted } = useMemo(() => {
+    const all = getProducts()
+    return {
+      active: all.filter((p) => !p.isDeleted),
+      deleted: all.filter((p) => p.isDeleted),
+    }
+  }, [productsRaw])
+
+  const displayed = showDeleted ? [...active, ...deleted] : active
+
+  function handleAdd(e: React.FormEvent) {
+    e.preventDefault()
+    const name = newName.trim()
+    if (!name) { toast.error("Введите название товара"); return }
+    const price = parseFloat(newPrice.replace(",", "."))
+    if (isNaN(price) || price <= 0) { toast.error("Введите корректную цену"); return }
+    if (active.find((p) => p.name.toLowerCase() === name.toLowerCase())) {
+      toast.error("Товар с таким названием уже существует"); return
+    }
+    addProduct({ id: generateId(), name, price, isDeleted: false, createdAt: new Date().toISOString() })
+    window.dispatchEvent(new Event("storage"))
+    toast.success(`Товар "${name}" добавлен`)
+    setNewName("")
+    setNewPrice("")
+  }
+
+  function handleSaveEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editProduct) return
+    const name = editProduct.name.trim()
+    if (!name) { toast.error("Введите название"); return }
+    const price = parseFloat(editProduct.price.replace(",", "."))
+    if (isNaN(price) || price <= 0) { toast.error("Введите корректную цену"); return }
+    updateProduct(editProduct.id, { name, price })
+    window.dispatchEvent(new Event("storage"))
+    toast.success("Товар обновлён")
+    setEditProduct(null)
+  }
+
+  function handleDelete(id: string, name: string) {
+    softDeleteProduct(id)
+    window.dispatchEvent(new Event("storage"))
+    toast.success(`Товар "${name}" скрыт из форм (исторические данные сохранены)`)
+  }
+
+  function handleRestore(id: string, name: string) {
+    restoreProduct(id)
+    window.dispatchEvent(new Event("storage"))
+    toast.success(`Товар "${name}" восстановлён`)
+  }
+
+  if (!isAdmin) return null
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Товары</h1>
+          <p className="text-sm text-muted-foreground">
+            Виды продукции и цены (цена фиксируется в каждой поставке)
+          </p>
+        </div>
+        {deleted.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => setShowDeleted(!showDeleted)}>
+            {showDeleted ? "Скрыть удалённые" : `Показать удалённые (${deleted.length})`}
+          </Button>
+        )}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Добавить товар</CardTitle>
+          <CardDescription>
+            Цена за единицу фиксируется в каждой поставке — прошлые записи не меняются при изменении цены
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleAdd} className="flex gap-2 items-end">
+            <div className="flex flex-col gap-1.5 flex-1">
+              <Label>Название</Label>
+              <Input placeholder="Твистер" value={newName} onChange={(e) => setNewName(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5 w-36">
+              <Label>Цена (тг)</Label>
+              <Input type="number" min="0" step="0.01" placeholder="600" value={newPrice} onChange={(e) => setNewPrice(e.target.value)} />
+            </div>
+            <Button type="submit" className="gap-2 shrink-0">
+              <PlusIcon className="h-4 w-4" />
+              Добавить
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {displayed.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
+          <p className="text-sm text-muted-foreground">Товары ещё не добавлены</p>
+        </div>
+      ) : (
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Название</TableHead>
+                <TableHead className="text-right">Текущая цена</TableHead>
+                <TableHead className="text-right">Добавлен</TableHead>
+                <TableHead className="text-center">Статус</TableHead>
+                <TableHead className="w-20" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {displayed.map((product) => (
+                <TableRow key={product.id} className={product.isDeleted ? "opacity-50" : ""}>
+                  <TableCell className="font-medium">{product.name}</TableCell>
+                  <TableCell className="text-right">{formatCurrency(product.price)}</TableCell>
+                  <TableCell className="text-right text-muted-foreground text-sm">
+                    {new Date(product.createdAt).toLocaleDateString("ru-RU")}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {product.isDeleted ? (
+                      <Badge variant="outline" className="text-muted-foreground">Удалён</Badge>
+                    ) : (
+                      <Badge variant="secondary">Активен</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1">
+                      {product.isDeleted ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                          onClick={() => handleRestore(product.id, product.name)}
+                          title="Восстановить"
+                        >
+                          <RotateCcwIcon className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => setEditProduct({ id: product.id, name: product.name, price: product.price.toString() })}
+                            title="Редактировать"
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                title="Удалить (soft delete)"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Удалить товар?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Товар &quot;{product.name}&quot; будет скрыт из формы поставки. Все существующие записи поставок с этим товаром сохранятся.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDelete(product.id, product.name)}>
+                                  Удалить
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Edit dialog */}
+      <Dialog open={!!editProduct} onOpenChange={(open) => !open && setEditProduct(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Редактировать товар</DialogTitle>
+            <DialogDescription>
+              Изменение цены повлияет только на новые поставки. Прошлые записи сохраняют свою цену.
+            </DialogDescription>
+          </DialogHeader>
+          {editProduct && (
+            <form onSubmit={handleSaveEdit}>
+              <div className="flex flex-col gap-4 py-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label>Название</Label>
+                  <Input value={editProduct.name} onChange={(e) => setEditProduct({ ...editProduct, name: e.target.value })} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>Цена (тг)</Label>
+                  <Input type="number" min="0" step="0.01" value={editProduct.price} onChange={(e) => setEditProduct({ ...editProduct, price: e.target.value })} />
+                </div>
+              </div>
+              <DialogFooter className="mt-2">
+                <Button type="button" variant="outline" onClick={() => setEditProduct(null)}>Отмена</Button>
+                <Button type="submit">Сохранить</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
