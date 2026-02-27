@@ -46,7 +46,7 @@ export interface AppSettings {
   highRate: number
 }
 
-export type UserRole = "admin" | "accountant" | "viewer"
+export type UserRole = "admin" | "accountant"
 
 export interface DateRange {
   from: Date

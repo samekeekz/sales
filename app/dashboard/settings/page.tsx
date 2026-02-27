@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
-import { getSettings, updateSettings } from "@/lib/storage"
+import { getSettings, updateSettings } from "@/app/actions/settings"
 
 export default function SettingsPage() {
   const { isAdmin } = useAuth()
@@ -18,22 +18,20 @@ export default function SettingsPage() {
   const [threshold, setThreshold] = useState("")
   const [lowRate, setLowRate] = useState("")
   const [highRate, setHighRate] = useState("")
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
 
   useEffect(() => {
     if (!isAdmin) {
       router.push("/dashboard")
       return
     }
-    const settings = getSettings()
-    setThreshold(settings.commissionThreshold.toString())
-    setLowRate((settings.lowRate * 100).toString())
-    setHighRate((settings.highRate * 100).toString())
+    getSettings().then((settings) => {
+      setThreshold(settings.commissionThreshold.toString())
+      setLowRate((settings.lowRate * 100).toString())
+      setHighRate((settings.highRate * 100).toString())
+    })
   }, [isAdmin, router])
 
-  function handleSaveGeneral(e: React.FormEvent) {
+  async function handleSaveGeneral(e: React.FormEvent) {
     e.preventDefault()
     const thresh = parseInt(threshold)
     const low = parseFloat(lowRate) / 100
@@ -56,32 +54,8 @@ export default function SettingsPage() {
       return
     }
 
-    updateSettings({ commissionThreshold: thresh, lowRate: low, highRate: high })
+    await updateSettings({ commissionThreshold: thresh, lowRate: low, highRate: high })
     toast.success("Настройки сохранены")
-  }
-
-  function handleChangePassword(e: React.FormEvent) {
-    e.preventDefault()
-    const settings = getSettings()
-
-    if (currentPassword !== settings.adminPassword) {
-      toast.error("Неверный текущий пароль")
-      return
-    }
-    if (!newPassword.trim()) {
-      toast.error("Введите новый пароль")
-      return
-    }
-    if (newPassword !== confirmPassword) {
-      toast.error("Пароли не совпадают")
-      return
-    }
-
-    updateSettings({ adminPassword: newPassword })
-    toast.success("Пароль администратора изменён")
-    setCurrentPassword("")
-    setNewPassword("")
-    setConfirmPassword("")
   }
 
   if (!isAdmin) return null
@@ -149,47 +123,6 @@ export default function SettingsPage() {
 
             <Button type="submit" className="w-full">
               Сохранить настройки
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Пароль администратора</CardTitle>
-          <CardDescription>Изменить пароль для входа администратора</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleChangePassword} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="currentPwd">Текущий пароль</Label>
-              <Input
-                id="currentPwd"
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="newPwd">Новый пароль</Label>
-              <Input
-                id="newPwd"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="confirmPwd">Подтвердите пароль</Label>
-              <Input
-                id="confirmPwd"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </div>
-            <Button type="submit" variant="outline" className="w-full">
-              Изменить пароль
             </Button>
           </form>
         </CardContent>

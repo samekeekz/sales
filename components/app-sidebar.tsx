@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Badge } from "@/components/ui/badge"
 
-type MinRole = "viewer" | "accountant" | "admin"
+type MinRole = "accountant" | "admin"
 
 const navItems: {
   title: string
@@ -44,7 +44,7 @@ const navItems: {
     title: "Панель управления",
     href: "/dashboard",
     icon: LayoutDashboardIcon,
-    minRole: "viewer",
+    minRole: "accountant",
   },
   {
     title: "Записать поставку",
@@ -56,13 +56,13 @@ const navItems: {
     title: "История поставок",
     href: "/dashboard/sales",
     icon: ListIcon,
-    minRole: "viewer",
+    minRole: "accountant",
   },
   {
     title: "Отчёты",
     href: "/dashboard/reports",
     icon: FileTextIcon,
-    minRole: "viewer",
+    minRole: "accountant",
   },
   {
     title: "Водители",
@@ -103,7 +103,6 @@ const navItems: {
 ]
 
 const ROLE_LEVEL: Record<MinRole, number> = {
-  viewer: 0,
   accountant: 1,
   admin: 2,
 }
@@ -116,7 +115,7 @@ function hasAccess(userRole: string | null, minRole: MinRole): boolean {
 function getRoleLabel(role: string | null, accountantName: string | null): string {
   if (role === "admin") return "Администратор"
   if (role === "accountant") return accountantName ? `Бухгалтер: ${accountantName}` : "Бухгалтер"
-  return "Просмотр"
+  return ""
 }
 
 export function AppSidebar() {
@@ -179,11 +178,12 @@ export function AppSidebar() {
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Выйти">
-              <Link href="/" onClick={() => logout()}>
-                <LogOutIcon />
-                <span>{"Выйти"}</span>
-              </Link>
+            <SidebarMenuButton
+              tooltip="Выйти"
+              onClick={async (e) => { e.preventDefault(); await logout() }}
+            >
+              <LogOutIcon />
+              <span>{"Выйти"}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

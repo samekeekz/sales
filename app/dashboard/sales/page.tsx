@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useSyncExternalStore, useCallback } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,27 +13,14 @@ import {
 } from "@/components/ui/select"
 import { SalesTable } from "@/components/sales-table"
 import { useAuth } from "@/components/auth-provider"
-import { getSales, getDrivers, getDebts, getStores } from "@/lib/storage"
+import { getSales } from "@/app/actions/sales"
+import { getDrivers } from "@/app/actions/drivers"
+import { getDebts } from "@/app/actions/debts"
+import { getStores } from "@/app/actions/stores"
+import type { SaleRecord, Driver, DebtRecord, Store } from "@/lib/types"
 import { groupByDelivery } from "@/lib/calculations"
 
 const ALL = "__all__"
-
-function subscribe(cb: () => void) {
-  window.addEventListener("storage", cb)
-  return () => window.removeEventListener("storage", cb)
-}
-
-function getSalesSnapshot() {
-  return localStorage.getItem("sales_records") || "[]"
-}
-
-function getDebtsSnapshot() {
-  return localStorage.getItem("debt_records") || "[]"
-}
-
-function getServerSnapshot() {
-  return "[]"
-}
 
 export default function SalesPage() {
   const { isAccountant } = useAuth()
@@ -42,39 +29,41 @@ export default function SalesPage() {
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
 
-  const salesRaw = useSyncExternalStore(subscribe, getSalesSnapshot, getServerSnapshot)
-  const debtsRaw = useSyncExternalStore(subscribe, getDebtsSnapshot, getServerSnapshot)
+  const [sales, setSales] = useState<SaleRecord[]>([])
+  const [debts, setDebts] = useState<DebtRecord[]>([])
+  const [drivers, setDrivers] = useState<Driver[]>([])
+  const [stores, setStores] = useState<Store[]>([])
 
-  const { groups, debts, drivers, stores } = useMemo(() => {
-    let allSales = getSales()
-    const drivers = getDrivers()
-    const stores = getStores()
-    const debts = getDebts()
+  const loadData = useCallback(async () => {
+    const [s, d, dr, st] = await Promise.all([getSales(), getDebts(), getDrivers(), getStores()])
+    setSales(s)
+    setDebts(d)
+    setDrivers(dr)
+    setStores(st)
+  }, [])
 
-    // Filter individual records before grouping
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const groups = useMemo(() => {
+    let filtered = sales
     if (driverFilter !== ALL) {
-      allSales = allSales.filter((s) => s.driverName === driverFilter)
+      filtered = filtered.filter((s) => s.driverName === driverFilter)
     }
     if (dateFrom) {
-      allSales = allSales.filter((s) => s.date >= dateFrom)
+      filtered = filtered.filter((s) => s.date >= dateFrom)
     }
     if (dateTo) {
-      allSales = allSales.filter((s) => s.date <= dateTo)
+      filtered = filtered.filter((s) => s.date <= dateTo)
     }
 
-    let groups = groupByDelivery(allSales)
-
-    // Store filter applies on groups
+    let groups = groupByDelivery(filtered)
     if (storeFilter !== ALL) {
       groups = groups.filter((g) => g.storeId === storeFilter)
     }
-
-    return { groups, debts, drivers, stores }
-  }, [salesRaw, debtsRaw, driverFilter, storeFilter, dateFrom, dateTo])
-
-  const refresh = useCallback(() => {
-    window.dispatchEvent(new Event("storage"))
-  }, [])
+    return groups
+  }, [sales, driverFilter, storeFilter, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-6">
@@ -147,7 +136,7 @@ export default function SalesPage() {
         groups={groups}
         debts={debts}
         isAccountant={isAccountant}
-        onDelete={refresh}
+        onDelete={loadData}
       />
     </div>
   )

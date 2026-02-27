@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useSyncExternalStore, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -28,24 +28,13 @@ import {
 import { PlusIcon, TrashIcon } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
-import { getStores, getDebts, addStore, deleteStore, generateId } from "@/lib/storage"
+import { getStores, addStore, deleteStore } from "@/app/actions/stores"
+import { getDebts } from "@/app/actions/debts"
+import type { Store, DebtRecord } from "@/lib/types"
 import { formatCurrency } from "@/lib/calculations"
 
-function subscribe(cb: () => void) {
-  window.addEventListener("storage", cb)
-  return () => window.removeEventListener("storage", cb)
-}
-
-function getStoresSnapshot() {
-  return localStorage.getItem("stores") || "[]"
-}
-
-function getDebtsSnapshot() {
-  return localStorage.getItem("debt_records") || "[]"
-}
-
-function getServerSnapshot() {
-  return "[]"
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 9)
 }
 
 export default function StoresPage() {
@@ -54,6 +43,8 @@ export default function StoresPage() {
   const [newName, setNewName] = useState("")
   const [newAddress, setNewAddress] = useState("")
   const [newPhone, setNewPhone] = useState("")
+  const [stores, setStores] = useState<Store[]>([])
+  const [debts, setDebts] = useState<DebtRecord[]>([])
 
   useEffect(() => {
     if (!isAccountant) {
@@ -61,13 +52,17 @@ export default function StoresPage() {
     }
   }, [isAccountant, router])
 
-  const storesRaw = useSyncExternalStore(subscribe, getStoresSnapshot, getServerSnapshot)
-  const debtsRaw = useSyncExternalStore(subscribe, getDebtsSnapshot, getServerSnapshot)
+  const loadData = useCallback(async () => {
+    const [s, d] = await Promise.all([getStores(), getDebts()])
+    setStores(s)
+    setDebts(d)
+  }, [])
 
-  const { stores, storeDebtStats } = useMemo(() => {
-    const stores = getStores()
-    const debts = getDebts()
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
+  const storeDebtStats = useMemo(() => {
     const stats = new Map<string, { totalDebt: number; unpaidCount: number }>()
     for (const debt of debts) {
       if (debt.status === "unpaid") {
@@ -77,11 +72,10 @@ export default function StoresPage() {
         stats.set(debt.storeId, existing)
       }
     }
+    return stats
+  }, [debts])
 
-    return { stores, storeDebtStats: stats }
-  }, [storesRaw, debtsRaw])
-
-  function handleAddStore(e: React.FormEvent) {
+  async function handleAddStore(e: React.FormEvent) {
     e.preventDefault()
     const name = newName.trim()
     if (!name) {
@@ -92,21 +86,21 @@ export default function StoresPage() {
       toast.error("Магазин с таким названием уже существует")
       return
     }
-    addStore({
+    await addStore({
       id: generateId(),
       name,
       address: newAddress.trim() || undefined,
       contactPhone: newPhone.trim() || undefined,
       createdAt: new Date().toISOString(),
     })
-    window.dispatchEvent(new Event("storage"))
     toast.success(`Магазин "${name}" добавлен`)
     setNewName("")
     setNewAddress("")
     setNewPhone("")
+    await loadData()
   }
 
-  function handleDeleteStore(id: string, name: string) {
+  async function handleDeleteStore(id: string, name: string) {
     const stats = storeDebtStats.get(id)
     if (stats && stats.unpaidCount > 0) {
       toast.error(
@@ -114,9 +108,9 @@ export default function StoresPage() {
       )
       return
     }
-    deleteStore(id)
-    window.dispatchEvent(new Event("storage"))
+    await deleteStore(id)
     toast.success(`Магазин "${name}" удалён`)
+    await loadData()
   }
 
   if (!isAccountant) return null

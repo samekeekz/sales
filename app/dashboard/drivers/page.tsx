@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useSyncExternalStore, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -29,30 +29,21 @@ import {
 import { PlusIcon, TrashIcon } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
-import { getDrivers, getSales, addDriver, deleteDriver, generateId } from "@/lib/storage"
+import { getDrivers, addDriver, deleteDriver } from "@/app/actions/drivers"
+import { getSales } from "@/app/actions/sales"
+import type { Driver, SaleRecord } from "@/lib/types"
 import { formatNumber, formatCurrency } from "@/lib/calculations"
 
-function subscribe(cb: () => void) {
-  window.addEventListener("storage", cb)
-  return () => window.removeEventListener("storage", cb)
-}
-
-function getDriversSnapshot() {
-  return localStorage.getItem("drivers") || "[]"
-}
-
-function getSalesSnapshot() {
-  return localStorage.getItem("sales_records") || "[]"
-}
-
-function getServerSnapshot() {
-  return "[]"
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 9)
 }
 
 export default function DriversPage() {
   const { isAccountant } = useAuth()
   const router = useRouter()
   const [newName, setNewName] = useState("")
+  const [drivers, setDrivers] = useState<Driver[]>([])
+  const [sales, setSales] = useState<SaleRecord[]>([])
 
   useEffect(() => {
     if (!isAccountant) {
@@ -60,13 +51,17 @@ export default function DriversPage() {
     }
   }, [isAccountant, router])
 
-  const driversRaw = useSyncExternalStore(subscribe, getDriversSnapshot, getServerSnapshot)
-  const salesRaw = useSyncExternalStore(subscribe, getSalesSnapshot, getServerSnapshot)
+  const loadData = useCallback(async () => {
+    const [dr, s] = await Promise.all([getDrivers(), getSales()])
+    setDrivers(dr)
+    setSales(s)
+  }, [])
 
-  const { drivers, driverStats } = useMemo(() => {
-    const drivers = getDrivers()
-    const sales = getSales()
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
+  const driverStats = useMemo(() => {
     const stats = new Map<string, { totalQty: number; totalAmt: number; totalComm: number }>()
     for (const sale of sales) {
       const existing = stats.get(sale.driverName) || { totalQty: 0, totalAmt: 0, totalComm: 0 }
@@ -75,11 +70,10 @@ export default function DriversPage() {
       existing.totalComm += sale.commission
       stats.set(sale.driverName, existing)
     }
+    return stats
+  }, [sales])
 
-    return { drivers, driverStats: stats }
-  }, [driversRaw, salesRaw])
-
-  function handleAddDriver(e: React.FormEvent) {
+  async function handleAddDriver(e: React.FormEvent) {
     e.preventDefault()
     const name = newName.trim()
     if (!name) {
@@ -90,20 +84,16 @@ export default function DriversPage() {
       toast.error("Водитель с таким именем уже существует")
       return
     }
-    addDriver({
-      id: generateId(),
-      name,
-      createdAt: new Date().toISOString(),
-    })
-    window.dispatchEvent(new Event("storage"))
+    await addDriver({ id: generateId(), name, createdAt: new Date().toISOString() })
     toast.success(`Водитель "${name}" добавлен`)
     setNewName("")
+    await loadData()
   }
 
-  function handleDelete(id: string, name: string) {
-    deleteDriver(id)
-    window.dispatchEvent(new Event("storage"))
+  async function handleDelete(id: string, name: string) {
+    await deleteDriver(id)
     toast.success(`Водитель "${name}" удалён`)
+    await loadData()
   }
 
   if (!isAccountant) return null

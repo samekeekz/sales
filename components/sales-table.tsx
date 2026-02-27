@@ -25,7 +25,8 @@ import {
 import { TrashIcon } from "lucide-react"
 import { toast } from "sonner"
 import type { DeliveryGroup, DebtRecord } from "@/lib/types"
-import { deleteSalesByDeliveryId, deleteDebtByDeliveryId, deleteSale } from "@/lib/storage"
+import { deleteSalesByDeliveryId, deleteSale } from "@/app/actions/sales"
+import { deleteDebtByDeliveryId } from "@/app/actions/debts"
 import { formatNumber, formatCurrency } from "@/lib/calculations"
 
 interface SalesTableProps {
@@ -38,16 +39,15 @@ interface SalesTableProps {
 export function SalesTable({ groups, debts, isAccountant, onDelete }: SalesTableProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  function handleDelete(group: DeliveryGroup) {
+  async function handleDelete(group: DeliveryGroup) {
     if (group.deliveryId && !group.deliveryId.startsWith("legacy_")) {
-      deleteSalesByDeliveryId(group.deliveryId)
-      deleteDebtByDeliveryId(group.deliveryId)
+      await deleteSalesByDeliveryId(group.deliveryId)
+      await deleteDebtByDeliveryId(group.deliveryId)
     } else {
       for (const item of group.items) {
-        deleteSale(item.id)
+        await deleteSale(item.id)
       }
     }
-    window.dispatchEvent(new Event("storage"))
     toast.success("Поставка удалена")
     setDeletingId(null)
     onDelete?.()

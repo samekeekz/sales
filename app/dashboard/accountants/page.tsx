@@ -24,30 +24,33 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
-import { getSettings, addAccountant, deleteAccountant, updateAccountant, generateId } from "@/lib/storage"
-import type { AccountantUser } from "@/lib/types"
-import { PlusIcon, TrashIcon, PencilIcon, EyeIcon, EyeOffIcon } from "lucide-react"
+import {
+  getAccountants,
+  createAccountant,
+  updateAccountant,
+  deleteAccountant,
+  type AccountantProfile,
+} from "@/app/actions/accountants"
+import { PlusIcon, TrashIcon, PencilIcon } from "lucide-react"
 
 export default function AccountantsPage() {
   const { isAdmin } = useAuth()
   const router = useRouter()
 
-  const [accountants, setAccountants] = useState<AccountantUser[]>([])
+  const [accountants, setAccountants] = useState<AccountantProfile[]>([])
   const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
-  // Edit dialog
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState("")
+  const [editEmail, setEditEmail] = useState("")
   const [editPassword, setEditPassword] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
 
-  // Password visibility
-  const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set())
-
-  const refreshAccountants = useCallback(() => {
-    const settings = getSettings()
-    setAccountants(settings.accountants)
+  const loadData = useCallback(async () => {
+    const data = await getAccountants()
+    setAccountants(data)
   }, [])
 
   useEffect(() => {
@@ -55,119 +58,80 @@ export default function AccountantsPage() {
       router.push("/dashboard")
       return
     }
-    refreshAccountants()
-  }, [isAdmin, router, refreshAccountants])
+    loadData()
+  }, [isAdmin, router, loadData])
 
-  function handleAdd(e: React.FormEvent) {
+  async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     const trimmedName = name.trim()
+    const trimmedEmail = email.trim()
     const trimmedPassword = password.trim()
 
-    if (!trimmedName) {
-      toast.error("Введите имя бухгалтера")
-      return
-    }
-    if (!trimmedPassword) {
-      toast.error("Введите пароль")
-      return
-    }
+    if (!trimmedName) { toast.error("Введите имя бухгалтера"); return }
+    if (!trimmedEmail) { toast.error("Введите email"); return }
+    if (!trimmedPassword) { toast.error("Введите пароль"); return }
 
-    // Check for duplicate name
     if (accountants.some((a) => a.name.toLowerCase() === trimmedName.toLowerCase())) {
-      toast.error("Бухгалтер с таким именем уже существует")
+      toast.error("Бухгалтер с таким именем уже существует"); return
+    }
+    if (accountants.some((a) => a.email.toLowerCase() === trimmedEmail.toLowerCase())) {
+      toast.error("Бухгалтер с таким email уже существует"); return
+    }
+
+    const result = await createAccountant({ name: trimmedName, email: trimmedEmail, password: trimmedPassword })
+    if (result.error) {
+      toast.error(result.error)
       return
     }
 
-    // Check password doesn't conflict with admin password
-    const settings = getSettings()
-    if (trimmedPassword === settings.adminPassword) {
-      toast.error("Пароль не может совпадать с паролем администратора")
-      return
-    }
-
-    // Check for duplicate password among accountants
-    if (accountants.some((a) => a.password === trimmedPassword)) {
-      toast.error("Этот пароль уже используется другим бухгалтером. Каждый бухгалтер должен иметь уникальный пароль.")
-      return
-    }
-
-    const newAccountant: AccountantUser = {
-      id: generateId(),
-      name: trimmedName,
-      password: trimmedPassword,
-      createdAt: new Date().toISOString(),
-    }
-
-    addAccountant(newAccountant)
-    refreshAccountants()
-    setName("")
-    setPassword("")
     toast.success(`Бухгалтер "${trimmedName}" добавлен`)
+    setName("")
+    setEmail("")
+    setPassword("")
+    await loadData()
   }
 
-  function handleDelete(acc: AccountantUser) {
-    deleteAccountant(acc.id)
-    refreshAccountants()
+  async function handleDelete(acc: AccountantProfile) {
+    const result = await deleteAccountant(acc.authUserId)
+    if (result.error) {
+      toast.error(result.error)
+      return
+    }
     toast.success(`Бухгалтер "${acc.name}" удалён`)
+    await loadData()
   }
 
-  function openEdit(acc: AccountantUser) {
-    setEditingId(acc.id)
+  function openEdit(acc: AccountantProfile) {
+    setEditingId(acc.authUserId)
     setEditName(acc.name)
-    setEditPassword(acc.password)
+    setEditEmail(acc.email)
+    setEditPassword("")
     setDialogOpen(true)
   }
 
-  function handleSaveEdit() {
+  async function handleSaveEdit() {
     if (!editingId) return
     const trimmedName = editName.trim()
-    const trimmedPassword = editPassword.trim()
+    const trimmedEmail = editEmail.trim()
 
-    if (!trimmedName) {
-      toast.error("Введите имя бухгалтера")
-      return
-    }
-    if (!trimmedPassword) {
-      toast.error("Введите пароль")
-      return
-    }
+    if (!trimmedName) { toast.error("Введите имя бухгалтера"); return }
+    if (!trimmedEmail) { toast.error("Введите email"); return }
 
-    // Check for duplicate name (excluding current)
-    if (accountants.some((a) => a.id !== editingId && a.name.toLowerCase() === trimmedName.toLowerCase())) {
-      toast.error("Бухгалтер с таким именем уже существует")
-      return
-    }
+    const params: { name?: string; email?: string; password?: string } = {}
+    if (trimmedName) params.name = trimmedName
+    if (trimmedEmail) params.email = trimmedEmail
+    if (editPassword.trim()) params.password = editPassword.trim()
 
-    // Check password doesn't conflict with admin
-    const settings = getSettings()
-    if (trimmedPassword === settings.adminPassword) {
-      toast.error("Пароль не может совпадать с паролем администратора")
+    const result = await updateAccountant(editingId, params)
+    if (result.error) {
+      toast.error(result.error)
       return
     }
 
-    // Check for duplicate password (excluding current)
-    if (accountants.some((a) => a.id !== editingId && a.password === trimmedPassword)) {
-      toast.error("Этот пароль уже используется другим бухгалтером")
-      return
-    }
-
-    updateAccountant(editingId, { name: trimmedName, password: trimmedPassword })
-    refreshAccountants()
+    toast.success("Данные бухгалтера обновлены")
     setDialogOpen(false)
     setEditingId(null)
-    toast.success("Данные бухгалтера обновлены")
-  }
-
-  function togglePasswordVisibility(id: string) {
-    setVisiblePasswords((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
-      return next
-    })
+    await loadData()
   }
 
   if (!isAdmin) return null
@@ -175,40 +139,53 @@ export default function AccountantsPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">{"Бухгалтеры"}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">Бухгалтеры</h1>
         <p className="text-sm text-muted-foreground">
-          {"Управление учётными записями бухгалтеров. Каждый бухгалтер входит по своему уникальному паролю."}
+          Управление учётными записями бухгалтеров
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">{"Добавить бухгалтера"}</CardTitle>
-          <CardDescription>{"Создайте учётную запись с уникальным именем и паролем"}</CardDescription>
+          <CardTitle className="text-base">Добавить бухгалтера</CardTitle>
+          <CardDescription>Создайте учётную запись с email и паролем</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleAdd} className="flex flex-col gap-4 sm:flex-row sm:items-end">
-            <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="accName">{"Имя"}</Label>
-              <Input
-                id="accName"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Например: Айгуль"
-              />
+          <form onSubmit={handleAdd} className="flex flex-col gap-4">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="accName">Имя</Label>
+                <Input
+                  id="accName"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Например: Айгуль"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="accEmail">Email</Label>
+                <Input
+                  id="accEmail"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="aigul@company.kz"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="accPassword">Пароль</Label>
+                <Input
+                  id="accPassword"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Временный пароль"
+                />
+              </div>
             </div>
-            <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="accPassword">{"Пароль"}</Label>
-              <Input
-                id="accPassword"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Уникальный пароль"
-              />
-            </div>
-            <Button type="submit" className="gap-1">
+            <Button type="submit" className="gap-1 w-fit">
               <PlusIcon className="h-4 w-4" />
-              {"Добавить"}
+              Добавить
             </Button>
           </form>
         </CardContent>
@@ -217,48 +194,29 @@ export default function AccountantsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            {"Список бухгалтеров"} ({accountants.length})
+            Список бухгалтеров ({accountants.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
           {accountants.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-8">
-              {"Бухгалтеры ещё не добавлены. Добавьте первого бухгалтера выше."}
+              Бухгалтеры ещё не добавлены. Добавьте первого бухгалтера выше.
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{"Имя"}</TableHead>
-                  <TableHead>{"Пароль"}</TableHead>
-                  <TableHead>{"Дата создания"}</TableHead>
-                  <TableHead className="w-[100px] text-right">{"Действия"}</TableHead>
+                  <TableHead>Имя</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Дата создания</TableHead>
+                  <TableHead className="w-[100px] text-right">Действия</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {accountants.map((acc) => (
                   <TableRow key={acc.id}>
                     <TableCell className="font-medium">{acc.name}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm">
-                          {visiblePasswords.has(acc.id) ? acc.password : "••••••"}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => togglePasswordVisibility(acc.id)}
-                          aria-label={visiblePasswords.has(acc.id) ? "Скрыть пароль" : "Показать пароль"}
-                        >
-                          {visiblePasswords.has(acc.id) ? (
-                            <EyeOffIcon className="h-3.5 w-3.5" />
-                          ) : (
-                            <EyeIcon className="h-3.5 w-3.5" />
-                          )}
-                        </Button>
-                      </div>
-                    </TableCell>
+                    <TableCell className="text-muted-foreground">{acc.email}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {new Date(acc.createdAt).toLocaleDateString("ru-RU")}
                     </TableCell>
@@ -295,12 +253,12 @@ export default function AccountantsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{"Редактировать бухгалтера"}</DialogTitle>
-            <DialogDescription>{"Измените имя или пароль бухгалтера"}</DialogDescription>
+            <DialogTitle>Редактировать бухгалтера</DialogTitle>
+            <DialogDescription>Измените имя, email или пароль бухгалтера</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="editName">{"Имя"}</Label>
+              <Label htmlFor="editName">Имя</Label>
               <Input
                 id="editName"
                 value={editName}
@@ -308,20 +266,31 @@ export default function AccountantsPage() {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="editPwd">{"Пароль"}</Label>
+              <Label htmlFor="editEmail">Email</Label>
+              <Input
+                id="editEmail"
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="editPwd">Новый пароль (оставьте пустым, чтобы не менять)</Label>
               <Input
                 id="editPwd"
+                type="password"
                 value={editPassword}
                 onChange={(e) => setEditPassword(e.target.value)}
+                placeholder="Новый пароль (необязательно)"
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              {"Отмена"}
+              Отмена
             </Button>
             <Button onClick={handleSaveEdit}>
-              {"Сохранить"}
+              Сохранить
             </Button>
           </DialogFooter>
         </DialogContent>

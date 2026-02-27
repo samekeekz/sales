@@ -14,7 +14,7 @@ function DashboardGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isLoaded && !role) {
-      router.push("/")
+      router.push("/login")
     }
   }, [isLoaded, role, router])
 

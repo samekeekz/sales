@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useSyncExternalStore } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,42 +15,33 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { ArrowLeftIcon } from "lucide-react"
-import { getSales, getDebts } from "@/lib/storage"
+import { getSales } from "@/app/actions/sales"
+import { getDebts } from "@/app/actions/debts"
+import type { SaleRecord, DebtRecord } from "@/lib/types"
 import { groupByDelivery, formatNumber, formatCurrency } from "@/lib/calculations"
-
-function subscribe(cb: () => void) {
-  window.addEventListener("storage", cb)
-  return () => window.removeEventListener("storage", cb)
-}
-
-function getSalesSnapshot() {
-  return localStorage.getItem("sales_records") || "[]"
-}
-
-function getDebtsSnapshot() {
-  return localStorage.getItem("debt_records") || "[]"
-}
-
-function getServerSnapshot() {
-  return "[]"
-}
 
 export default function DriverProfilePage() {
   const params = useParams()
   const driverName = decodeURIComponent(params.name as string)
 
-  const salesRaw = useSyncExternalStore(subscribe, getSalesSnapshot, getServerSnapshot)
-  const debtsRaw = useSyncExternalStore(subscribe, getDebtsSnapshot, getServerSnapshot)
+  const [sales, setSales] = useState<SaleRecord[]>([])
+  const [debts, setDebts] = useState<DebtRecord[]>([])
 
-  const { groups, debts, totalQty, totalAmt, totalComm } = useMemo(() => {
-    const allSales = getSales().filter((s) => s.driverName === driverName)
-    const debts = getDebts()
-    const groups = groupByDelivery(allSales)
-    const totalQty = allSales.reduce((s, r) => s + r.quantity, 0)
-    const totalAmt = allSales.reduce((s, r) => s + r.totalAmount, 0)
-    const totalComm = allSales.reduce((s, r) => s + r.commission, 0)
-    return { groups, debts, totalQty, totalAmt, totalComm }
-  }, [salesRaw, debtsRaw, driverName])
+  useEffect(() => {
+    Promise.all([getSales(), getDebts()]).then(([s, d]) => {
+      setSales(s)
+      setDebts(d)
+    })
+  }, [])
+
+  const { groups, totalQty, totalAmt, totalComm } = useMemo(() => {
+    const driverSales = sales.filter((s) => s.driverName === driverName)
+    const groups = groupByDelivery(driverSales)
+    const totalQty = driverSales.reduce((s, r) => s + r.quantity, 0)
+    const totalAmt = driverSales.reduce((s, r) => s + r.totalAmount, 0)
+    const totalComm = driverSales.reduce((s, r) => s + r.commission, 0)
+    return { groups, totalQty, totalAmt, totalComm }
+  }, [sales, driverName])
 
   return (
     <div className="flex flex-col gap-6">
@@ -132,10 +123,7 @@ export default function DriverProfilePage() {
                     <TableCell>{group.storeName ?? "—"}</TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-55">
                       {group.items
-                        .map(
-                          (item) =>
-                            `${item.productName ?? "Товар"} × ${formatNumber(item.quantity)}`
-                        )
+                        .map((item) => `${item.productName ?? "Товар"} × ${formatNumber(item.quantity)}`)
                         .join(", ")}
                     </TableCell>
                     <TableCell className="text-right whitespace-nowrap">

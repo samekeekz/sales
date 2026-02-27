@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useSyncExternalStore, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -37,20 +37,12 @@ import {
 import { PlusIcon, PencilIcon, TrashIcon, RotateCcwIcon } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
-import { getProducts, addProduct, updateProduct, softDeleteProduct, restoreProduct, generateId } from "@/lib/storage"
+import { getProducts, addProduct, updateProduct, softDeleteProduct, restoreProduct } from "@/app/actions/products"
+import type { Product } from "@/lib/types"
 import { formatCurrency } from "@/lib/calculations"
 
-function subscribe(cb: () => void) {
-  window.addEventListener("storage", cb)
-  return () => window.removeEventListener("storage", cb)
-}
-
-function getSnapshot() {
-  return localStorage.getItem("products") || "[]"
-}
-
-function getServerSnapshot() {
-  return "[]"
+function generateId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 9)
 }
 
 export default function ProductsPage() {
@@ -60,27 +52,30 @@ export default function ProductsPage() {
   const [newName, setNewName] = useState("")
   const [newPrice, setNewPrice] = useState("")
   const [showDeleted, setShowDeleted] = useState(false)
-
-  // Edit dialog state
   const [editProduct, setEditProduct] = useState<{ id: string; name: string; price: string } | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
 
   useEffect(() => {
     if (!isAdmin) router.push("/dashboard")
   }, [isAdmin, router])
 
-  const productsRaw = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+  const loadData = useCallback(async () => {
+    const all = await getProducts()
+    setProducts(all)
+  }, [])
 
-  const { active, deleted } = useMemo(() => {
-    const all = getProducts()
-    return {
-      active: all.filter((p) => !p.isDeleted),
-      deleted: all.filter((p) => p.isDeleted),
-    }
-  }, [productsRaw])
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const { active, deleted } = useMemo(() => ({
+    active: products.filter((p) => !p.isDeleted),
+    deleted: products.filter((p) => p.isDeleted),
+  }), [products])
 
   const displayed = showDeleted ? [...active, ...deleted] : active
 
-  function handleAdd(e: React.FormEvent) {
+  async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     const name = newName.trim()
     if (!name) { toast.error("Введите название товара"); return }
@@ -89,36 +84,36 @@ export default function ProductsPage() {
     if (active.find((p) => p.name.toLowerCase() === name.toLowerCase())) {
       toast.error("Товар с таким названием уже существует"); return
     }
-    addProduct({ id: generateId(), name, price, isDeleted: false, createdAt: new Date().toISOString() })
-    window.dispatchEvent(new Event("storage"))
+    await addProduct({ id: generateId(), name, price, isDeleted: false, createdAt: new Date().toISOString() })
     toast.success(`Товар "${name}" добавлен`)
     setNewName("")
     setNewPrice("")
+    await loadData()
   }
 
-  function handleSaveEdit(e: React.FormEvent) {
+  async function handleSaveEdit(e: React.FormEvent) {
     e.preventDefault()
     if (!editProduct) return
     const name = editProduct.name.trim()
     if (!name) { toast.error("Введите название"); return }
     const price = parseFloat(editProduct.price.replace(",", "."))
     if (isNaN(price) || price <= 0) { toast.error("Введите корректную цену"); return }
-    updateProduct(editProduct.id, { name, price })
-    window.dispatchEvent(new Event("storage"))
+    await updateProduct(editProduct.id, { name, price })
     toast.success("Товар обновлён")
     setEditProduct(null)
+    await loadData()
   }
 
-  function handleDelete(id: string, name: string) {
-    softDeleteProduct(id)
-    window.dispatchEvent(new Event("storage"))
+  async function handleDelete(id: string, name: string) {
+    await softDeleteProduct(id)
     toast.success(`Товар "${name}" скрыт из форм (исторические данные сохранены)`)
+    await loadData()
   }
 
-  function handleRestore(id: string, name: string) {
-    restoreProduct(id)
-    window.dispatchEvent(new Event("storage"))
+  async function handleRestore(id: string, name: string) {
+    await restoreProduct(id)
     toast.success(`Товар "${name}" восстановлён`)
+    await loadData()
   }
 
   if (!isAdmin) return null
@@ -255,7 +250,6 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Edit dialog */}
       <Dialog open={!!editProduct} onOpenChange={(open) => !open && setEditProduct(null)}>
         <DialogContent>
           <DialogHeader>

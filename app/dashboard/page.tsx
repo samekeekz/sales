@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useSyncExternalStore } from "react"
+import { useMemo, useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -27,7 +27,11 @@ import {
 import { MetricsCards } from "@/components/metrics-cards"
 import { SalesChart } from "@/components/sales-chart"
 import { useAuth } from "@/components/auth-provider"
-import { getSales, getDrivers, getSettings, getDebts } from "@/lib/storage"
+import { getSales } from "@/app/actions/sales"
+import { getDrivers } from "@/app/actions/drivers"
+import { getSettings } from "@/app/actions/settings"
+import { getDebts } from "@/app/actions/debts"
+import type { SaleRecord, Driver, DebtRecord } from "@/lib/types"
 import {
   getDriverSummaries,
   getWeekRange,
@@ -39,33 +43,27 @@ import {
   formatCurrency,
 } from "@/lib/calculations"
 
-function subscribe(cb: () => void) {
-  window.addEventListener("storage", cb)
-  return () => window.removeEventListener("storage", cb)
-}
-
-function getSalesSnapshot() {
-  return localStorage.getItem("sales_records") || "[]"
-}
-
-function getDebtsSnapshot() {
-  return localStorage.getItem("debt_records") || "[]"
-}
-
-function getServerSnapshot() {
-  return "[]"
-}
+const DEFAULT_SETTINGS = { commissionThreshold: 200, lowRate: 0.05, highRate: 0.07 }
 
 export default function DashboardPage() {
   const { isAccountant } = useAuth()
+  const [sales, setSales] = useState<SaleRecord[]>([])
+  const [debts, setDebts] = useState<DebtRecord[]>([])
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS)
+  const [drivers, setDrivers] = useState<Driver[]>([])
 
-  const salesRaw = useSyncExternalStore(subscribe, getSalesSnapshot, getServerSnapshot)
-  const debtsRaw = useSyncExternalStore(subscribe, getDebtsSnapshot, getServerSnapshot)
+  useEffect(() => {
+    Promise.all([getSales(), getDebts(), getSettings(), getDrivers()]).then(
+      ([s, d, st, dr]) => {
+        setSales(s)
+        setDebts(d)
+        setSettings(st)
+        setDrivers(dr)
+      }
+    )
+  }, [])
 
   const {
-    allSales,
-    settings,
-    drivers,
     summaries,
     totalAmount,
     totalCommission,
@@ -74,16 +72,11 @@ export default function DashboardPage() {
     totalOutstanding,
     monthDriverData,
   } = useMemo(() => {
-    const allSales = getSales()
-    const settings = getSettings()
-    const drivers = getDrivers()
-    const debts = getDebts()
-
     const { from: weekFrom, to: weekTo } = getWeekRange()
     const { from: monthFrom, to: monthTo } = getMonthRange()
 
-    const weekSales = filterSalesByDateRange(allSales, weekFrom, weekTo)
-    const monthSales = filterSalesByDateRange(allSales, monthFrom, monthTo)
+    const weekSales = filterSalesByDateRange(sales, weekFrom, weekTo)
+    const monthSales = filterSalesByDateRange(sales, monthFrom, monthTo)
 
     const summaries = getDriverSummaries(weekSales, settings)
     const totalQuantity = summaries.reduce((s, d) => s + d.totalQuantity, 0)
@@ -93,7 +86,6 @@ export default function DashboardPage() {
     const debtSummaries = getDebtSummaries(debts)
     const totalOutstanding = getTotalOutstandingDebt(debts)
 
-    // Driver delivery totals for current month
     const driverMonthMap = new Map<string, number>()
     for (const sale of monthSales) {
       driverMonthMap.set(sale.driverName, (driverMonthMap.get(sale.driverName) || 0) + sale.quantity)
@@ -104,9 +96,6 @@ export default function DashboardPage() {
       .slice(0, 8)
 
     return {
-      allSales,
-      settings,
-      drivers,
       summaries,
       totalAmount,
       totalCommission,
@@ -115,7 +104,7 @@ export default function DashboardPage() {
       totalOutstanding,
       monthDriverData,
     }
-  }, [salesRaw, debtsRaw])
+  }, [sales, debts, settings])
 
   return (
     <div className="flex flex-col gap-6">
@@ -197,7 +186,7 @@ export default function DashboardPage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <SalesChart sales={allSales} />
+        <SalesChart sales={sales} />
 
         <Card>
           <CardHeader>
@@ -234,17 +223,11 @@ export default function DashboardPage() {
                     />
                     <Tooltip
                       formatter={(value: number) => [`${formatNumber(value)} ед.`, "Поставлено"]}
-                      contentStyle={{
-                        fontSize: 12,
-                        borderRadius: 8,
-                      }}
+                      contentStyle={{ fontSize: 12, borderRadius: 8 }}
                     />
                     <Bar dataKey="quantity" radius={[0, 4, 4, 0]}>
                       {monthDriverData.map((_, i) => (
-                        <Cell
-                          key={i}
-                          fill={`hsl(var(--chart-${(i % 5) + 1}))`}
-                        />
+                        <Cell key={i} fill={`hsl(var(--chart-${(i % 5) + 1}))`} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -279,23 +262,11 @@ export default function DashboardPage() {
                 {summaries.slice(0, 5).map((s) => (
                   <TableRow key={s.driverName}>
                     <TableCell className="font-medium">{s.driverName}</TableCell>
+                    <TableCell className="text-right">{formatNumber(s.totalQuantity)} ед.</TableCell>
+                    <TableCell className="text-right">{formatCurrency(s.totalAmount)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(s.totalCommission)}</TableCell>
                     <TableCell className="text-right">
-                      {formatNumber(s.totalQuantity)} ед.
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(s.totalAmount)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(s.totalCommission)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Badge
-                        variant={
-                          s.commissionRate >= settings.highRate
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
+                      <Badge variant={s.commissionRate >= settings.highRate ? "default" : "secondary"}>
                         {(s.commissionRate * 100).toFixed(0)}%
                       </Badge>
                     </TableCell>

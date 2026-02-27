@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useSyncExternalStore, useEffect } from "react"
+import { useState, useMemo, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -44,30 +44,11 @@ import {
 import { TrashIcon, CheckIcon, CreditCardIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
-import { getStores, getDebts, deleteDebt, recordPayment, getPayments } from "@/lib/storage"
+import { getStores } from "@/app/actions/stores"
+import { getDebts, deleteDebt, recordPayment } from "@/app/actions/debts"
+import { getPayments } from "@/app/actions/payments"
 import { formatCurrency, getTotalOutstandingDebt } from "@/lib/calculations"
-import type { DebtRecord, PaymentRecord } from "@/lib/types"
-
-function subscribe(cb: () => void) {
-  window.addEventListener("storage", cb)
-  return () => window.removeEventListener("storage", cb)
-}
-
-function getDebtsSnapshot() {
-  return localStorage.getItem("debt_records") || "[]"
-}
-
-function getStoresSnapshot() {
-  return localStorage.getItem("stores") || "[]"
-}
-
-function getPaymentsSnapshot() {
-  return localStorage.getItem("payment_records") || "[]"
-}
-
-function getServerSnapshot() {
-  return "[]"
-}
+import type { DebtRecord, PaymentRecord, Store } from "@/lib/types"
 
 function debtRemaining(debt: DebtRecord): number {
   return Math.max(0, debt.amount - (debt.paidAmount ?? 0))
@@ -82,13 +63,14 @@ export default function DebtsPage() {
   const [filterFrom, setFilterFrom] = useState("")
   const [filterTo, setFilterTo] = useState("")
 
-  // Payment dialog state
   const [payingDebt, setPayingDebt] = useState<DebtRecord | null>(null)
   const [payAmount, setPayAmount] = useState("")
   const [payNote, setPayNote] = useState("")
-
-  // Expanded payment history per debt
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null)
+
+  const [debts, setDebts] = useState<DebtRecord[]>([])
+  const [stores, setStores] = useState<Store[]>([])
+  const [allPayments, setAllPayments] = useState<PaymentRecord[]>([])
 
   useEffect(() => {
     if (!isAccountant) {
@@ -96,21 +78,23 @@ export default function DebtsPage() {
     }
   }, [isAccountant, router])
 
-  const debtsRaw = useSyncExternalStore(subscribe, getDebtsSnapshot, getServerSnapshot)
-  const storesRaw = useSyncExternalStore(subscribe, getStoresSnapshot, getServerSnapshot)
-  const paymentsRaw = useSyncExternalStore(subscribe, getPaymentsSnapshot, getServerSnapshot)
+  const loadData = useCallback(async () => {
+    const [d, s, p] = await Promise.all([getDebts(), getStores(), getPayments()])
+    setDebts(d)
+    setStores(s)
+    setAllPayments(p)
+  }, [])
 
-  const { debts, stores, filtered, totalOutstanding, storesWithDebt, paymentsByDebt } = useMemo(() => {
-    const debts = getDebts()
-    const stores = getStores()
-    const allPayments = getPayments()
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
+  const { filtered, totalOutstanding, storesWithDebt, paymentsByDebt } = useMemo(() => {
     const totalOutstanding = getTotalOutstandingDebt(debts)
     const storesWithDebt = new Set(
       debts.filter((d) => d.status === "unpaid").map((d) => d.storeId)
     ).size
 
-    // Index payments by debtId for fast lookup
     const paymentsByDebt = new Map<string, PaymentRecord[]>()
     for (const p of allPayments) {
       const list = paymentsByDebt.get(p.debtId) || []
@@ -119,28 +103,18 @@ export default function DebtsPage() {
     }
 
     let filtered = debts
+    if (filterStore !== "all") filtered = filtered.filter((d) => d.storeId === filterStore)
+    if (filterStatus !== "all") filtered = filtered.filter((d) => d.status === filterStatus)
+    if (filterFrom) filtered = filtered.filter((d) => d.deliveryDate >= filterFrom)
+    if (filterTo) filtered = filtered.filter((d) => d.deliveryDate <= filterTo)
 
-    if (filterStore !== "all") {
-      filtered = filtered.filter((d) => d.storeId === filterStore)
-    }
-    if (filterStatus !== "all") {
-      filtered = filtered.filter((d) => d.status === filterStatus)
-    }
-    if (filterFrom) {
-      filtered = filtered.filter((d) => d.deliveryDate >= filterFrom)
-    }
-    if (filterTo) {
-      filtered = filtered.filter((d) => d.deliveryDate <= filterTo)
-    }
-
-    // Sort: unpaid first (partially paid before fully unpaid), then by date desc
     filtered = [...filtered].sort((a, b) => {
       if (a.status !== b.status) return a.status === "unpaid" ? -1 : 1
       return b.deliveryDate.localeCompare(a.deliveryDate)
     })
 
-    return { debts, stores, filtered, totalOutstanding, storesWithDebt, paymentsByDebt }
-  }, [debtsRaw, storesRaw, paymentsRaw, filterStore, filterStatus, filterFrom, filterTo])
+    return { filtered, totalOutstanding, storesWithDebt, paymentsByDebt }
+  }, [debts, allPayments, filterStore, filterStatus, filterFrom, filterTo])
 
   function openPayDialog(debt: DebtRecord) {
     setPayingDebt(debt)
@@ -148,7 +122,7 @@ export default function DebtsPage() {
     setPayNote("")
   }
 
-  function handleRecordPayment(e: React.FormEvent) {
+  async function handleRecordPayment(e: React.FormEvent) {
     e.preventDefault()
     if (!payingDebt) return
     const amount = parseFloat(payAmount.replace(",", "."))
@@ -161,8 +135,7 @@ export default function DebtsPage() {
       toast.error(`Сумма не может превышать остаток (${formatCurrency(remaining)})`)
       return
     }
-    recordPayment(payingDebt.id, amount, payNote.trim() || undefined)
-    window.dispatchEvent(new Event("storage"))
+    await recordPayment(payingDebt.id, amount, payNote.trim() || undefined)
     const fullyPaid = amount >= remaining
     toast.success(
       fullyPaid
@@ -170,12 +143,13 @@ export default function DebtsPage() {
         : `Платёж ${formatCurrency(amount)} записан. Остаток: ${formatCurrency(remaining - amount)}`
     )
     setPayingDebt(null)
+    await loadData()
   }
 
-  function handleDelete(id: string) {
-    deleteDebt(id)
-    window.dispatchEvent(new Event("storage"))
+  async function handleDelete(id: string) {
+    await deleteDebt(id)
     toast.success("Запись удалена")
+    await loadData()
   }
 
   function toggleHistory(debtId: string) {
@@ -193,7 +167,6 @@ export default function DebtsPage() {
         </p>
       </div>
 
-      {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
@@ -223,7 +196,6 @@ export default function DebtsPage() {
         </Card>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <Select value={filterStore} onValueChange={setFilterStore}>
           <SelectTrigger className="w-44">
@@ -232,9 +204,7 @@ export default function DebtsPage() {
           <SelectContent>
             <SelectItem value="all">Все магазины</SelectItem>
             {stores.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.name}
-              </SelectItem>
+              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -282,7 +252,6 @@ export default function DebtsPage() {
         )}
       </div>
 
-      {/* Table */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
           <CreditCardIcon className="h-8 w-8 text-muted-foreground mb-2" />
@@ -321,11 +290,7 @@ export default function DebtsPage() {
                       </TableCell>
                       <TableCell>{debt.storeName}</TableCell>
                       <TableCell className="text-right">
-                        <span
-                          className={`font-medium ${
-                            debt.status === "unpaid" ? "text-destructive" : "text-muted-foreground"
-                          }`}
-                        >
+                        <span className={`font-medium ${debt.status === "unpaid" ? "text-destructive" : "text-muted-foreground"}`}>
                           {formatCurrency(remaining)}
                         </span>
                         {isPartial && (
@@ -344,9 +309,7 @@ export default function DebtsPage() {
                         )}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell text-right text-muted-foreground text-sm">
-                        {debt.paidAt
-                          ? new Date(debt.paidAt).toLocaleDateString("ru-RU")
-                          : "—"}
+                        {debt.paidAt ? new Date(debt.paidAt).toLocaleDateString("ru-RU") : "—"}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
@@ -410,7 +373,6 @@ export default function DebtsPage() {
                       </TableCell>
                     </TableRow>
 
-                    {/* Expandable payment history */}
                     {isExpanded && payments.length > 0 && (
                       <TableRow key={`${debt.id}-history`} className="bg-muted/30">
                         <TableCell colSpan={6} className="py-2 px-6">
@@ -427,9 +389,7 @@ export default function DebtsPage() {
                                 >
                                   <span className="text-muted-foreground">
                                     {new Date(p.paidAt).toLocaleDateString("ru-RU")}
-                                    {p.note && (
-                                      <span className="ml-2 text-xs">— {p.note}</span>
-                                    )}
+                                    {p.note && <span className="ml-2 text-xs">— {p.note}</span>}
                                   </span>
                                   <span className="font-medium text-green-700 dark:text-green-400">
                                     +{formatCurrency(p.amount)}
@@ -448,7 +408,6 @@ export default function DebtsPage() {
         </div>
       )}
 
-      {/* Payment dialog */}
       <Dialog open={!!payingDebt} onOpenChange={(open) => !open && setPayingDebt(null)}>
         <DialogContent>
           <DialogHeader>
@@ -460,9 +419,7 @@ export default function DebtsPage() {
                   {" · "}
                   Долг: {formatCurrency(payingDebt.amount)}
                   {(payingDebt.paidAmount ?? 0) > 0 && (
-                    <>
-                      {" · "}Оплачено: {formatCurrency(payingDebt.paidAmount ?? 0)}
-                    </>
+                    <>{" · "}Оплачено: {formatCurrency(payingDebt.paidAmount ?? 0)}</>
                   )}
                   {" · "}
                   Остаток: <strong>{formatCurrency(debtRemaining(payingDebt))}</strong>

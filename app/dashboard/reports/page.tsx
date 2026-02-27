@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useSyncExternalStore } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,7 +18,10 @@ import {
 } from "@/components/ui/table"
 import { DownloadIcon } from "lucide-react"
 import { ReportTable } from "@/components/report-table"
-import { getSales, getSettings, getDebts } from "@/lib/storage"
+import { getSales } from "@/app/actions/sales"
+import { getSettings } from "@/app/actions/settings"
+import { getDebts } from "@/app/actions/debts"
+import type { SaleRecord, DebtRecord } from "@/lib/types"
 import {
   getDriverSummaries,
   getWeekRange,
@@ -32,36 +35,25 @@ import {
 
 type Period = "week" | "month" | "custom"
 
-function subscribe(cb: () => void) {
-  window.addEventListener("storage", cb)
-  return () => window.removeEventListener("storage", cb)
-}
-
-function getSalesSnapshot() {
-  return localStorage.getItem("sales_records") || "[]"
-}
-
-function getDebtsSnapshot() {
-  return localStorage.getItem("debt_records") || "[]"
-}
-
-function getServerSnapshot() {
-  return "[]"
-}
+const DEFAULT_SETTINGS = { commissionThreshold: 200, lowRate: 0.05, highRate: 0.07 }
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState<Period>("week")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
+  const [sales, setSales] = useState<SaleRecord[]>([])
+  const [debts, setDebts] = useState<DebtRecord[]>([])
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS)
 
-  const salesRaw = useSyncExternalStore(subscribe, getSalesSnapshot, getServerSnapshot)
-  const debtsRaw = useSyncExternalStore(subscribe, getDebtsSnapshot, getServerSnapshot)
+  useEffect(() => {
+    Promise.all([getSales(), getDebts(), getSettings()]).then(([s, d, st]) => {
+      setSales(s)
+      setDebts(d)
+      setSettings(st)
+    })
+  }, [])
 
-  const { summaries, settings, periodLabel, debtSummaries, totalOutstanding } = useMemo(() => {
-    const allSales = getSales()
-    const allDebts = getDebts()
-    const settings = getSettings()
-
+  const { summaries, periodLabel, debtSummaries, totalOutstanding } = useMemo(() => {
     let from: Date
     let to: Date
     let periodLabel: string
@@ -83,15 +75,13 @@ export default function ReportsPage() {
       periodLabel = "период"
     }
 
-    const filtered = filterSalesByDateRange(allSales, from, to)
+    const filtered = filterSalesByDateRange(sales, from, to)
     const summaries = getDriverSummaries(filtered, settings)
+    const debtSummaries = getDebtSummaries(debts)
+    const totalOutstanding = getTotalOutstandingDebt(debts)
 
-    // Debts: always show all outstanding (they accumulate over time)
-    const debtSummaries = getDebtSummaries(allDebts)
-    const totalOutstanding = getTotalOutstandingDebt(allDebts)
-
-    return { summaries, settings, periodLabel, debtSummaries, totalOutstanding }
-  }, [salesRaw, debtsRaw, period, customFrom, customTo])
+    return { summaries, periodLabel, debtSummaries, totalOutstanding }
+  }, [sales, debts, settings, period, customFrom, customTo])
 
   return (
     <div className="flex flex-col gap-6">

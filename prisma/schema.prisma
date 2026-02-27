@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model user_profiles {
+  id          String   @id @default(cuid())
+  auth_user_id String  @unique
+  role        String
+  name        String
+  email       String
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model accountants {
+  id         String   @id
+  name       String
+  password   String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model app_settings {
+  id                   Int     @id @default(1)
+  admin_password       String  @default("admin")
+  commission_threshold Decimal @default(200) @db.Decimal(12, 2)
+  low_rate             Decimal @default(0.05) @db.Decimal(6, 4)
+  high_rate            Decimal @default(0.07) @db.Decimal(6, 4)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model debt_records {
+  id              String            @id
+  store_id        String
+  store_name      String
+  delivery_date   String
+  amount          Decimal           @db.Decimal(12, 2)
+  delivery_id     String?
+  note            String?
+  status          String            @default("unpaid")
+  paid_amount     Decimal?          @db.Decimal(12, 2)
+  paid_at         String?
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  stores          stores            @relation(fields: [store_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payment_records payment_records[]
+}
+
+model drivers {
+  id         String   @id
+  name       String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model payment_records {
+  id           String       @id
+  debt_id      String
+  amount       Decimal      @db.Decimal(12, 2)
+  paid_at      String
+  note         String?
+  debt_records debt_records @relation(fields: [debt_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model products {
+  id           String         @id
+  name         String
+  price        Decimal        @db.Decimal(12, 2)
+  is_deleted   Boolean        @default(false)
+  created_at   DateTime       @default(now()) @db.Timestamptz(6)
+  sale_records sale_records[]
+}
+
+model sale_records {
+  id              String    @id
+  date            String
+  driver_name     String
+  store_id        String?
+  store_name      String?
+  product_id      String?
+  product_name    String?
+  delivery_id     String?
+  quantity        Decimal   @db.Decimal(12, 3)
+  unit_price      Decimal   @db.Decimal(12, 2)
+  total_amount    Decimal   @db.Decimal(12, 2)
+  commission      Decimal   @db.Decimal(12, 2)
+  commission_rate Decimal   @db.Decimal(6, 4)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  products        products? @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  stores          stores?   @relation(fields: [store_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model stores {
+  id            String         @id
+  name          String
+  address       String?
+  contact_phone String?
+  created_at    DateTime       @default(now()) @db.Timestamptz(6)
+  debt_records  debt_records[]
+  sale_records  sale_records[]
+}

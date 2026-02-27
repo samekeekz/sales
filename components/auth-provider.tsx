@@ -1,83 +1,53 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
-import type { UserRole } from "@/lib/types"
-import { getSettings } from "@/lib/storage"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { authClient } from "@/lib/auth/client"
+import { getUserProfile } from "@/app/actions/accountants"
 
 interface AuthContextValue {
-  role: UserRole | null
+  role: "admin" | "accountant" | null
   accountantName: string | null
   isLoaded: boolean
-  login: (password: string) => boolean
-  loginAsViewer: () => void
-  logout: () => void
+  logout: () => Promise<void>
   isAccountant: boolean
   isAdmin: boolean
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-function getStoredRole(): UserRole | null {
-  if (typeof window === "undefined") return null
-  const stored = sessionStorage.getItem("user_role")
-  if (stored === "admin" || stored === "accountant" || stored === "viewer") return stored
-  return null
-}
-
-function getStoredName(): string | null {
-  if (typeof window === "undefined") return null
-  return sessionStorage.getItem("user_name")
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [role, setRole] = useState<UserRole | null>(null)
+  const session = authClient.useSession()
+  const [role, setRole] = useState<"admin" | "accountant" | null>(null)
   const [accountantName, setAccountantName] = useState<string | null>(null)
   const [isLoaded, setIsLoaded] = useState(false)
 
+  const userId = session.data?.user?.id
+  const isPending = session.isPending
+
   useEffect(() => {
-    setRole(getStoredRole())
-    setAccountantName(getStoredName())
-    setIsLoaded(true)
-  }, [])
-
-  const login = useCallback((password: string): boolean => {
-    const settings = getSettings()
-
-    // Check admin password first
-    if (password === settings.adminPassword) {
-      setRole("admin")
+    if (isPending) return
+    if (!userId) {
+      setRole(null)
       setAccountantName(null)
-      sessionStorage.setItem("user_role", "admin")
-      sessionStorage.removeItem("user_name")
-      return true
+      setIsLoaded(true)
+      return
     }
+    getUserProfile(userId).then((profile) => {
+      if (profile) {
+        setRole(profile.role as "admin" | "accountant")
+        setAccountantName(profile.name)
+      } else {
+        setRole(null)
+        setAccountantName(null)
+      }
+      setIsLoaded(true)
+    })
+  }, [isPending, userId])
 
-    // Check accountant passwords
-    const matchedAccountant = settings.accountants.find((a) => a.password === password)
-    if (matchedAccountant) {
-      setRole("accountant")
-      setAccountantName(matchedAccountant.name)
-      sessionStorage.setItem("user_role", "accountant")
-      sessionStorage.setItem("user_name", matchedAccountant.name)
-      return true
-    }
-
-    return false
-  }, [])
-
-  const loginAsViewer = useCallback(() => {
-    setRole("viewer")
-    setAccountantName(null)
-    sessionStorage.setItem("user_role", "viewer")
-    sessionStorage.removeItem("user_name")
-  }, [])
-
-  const logout = useCallback(() => {
-    setRole(null)
-    setAccountantName(null)
-    sessionStorage.removeItem("user_role")
-    sessionStorage.removeItem("user_name")
-  }, [])
+  async function logout() {
+    await authClient.signOut()
+    window.location.href = "/login"
+  }
 
   return (
     <AuthContext.Provider
@@ -85,8 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role,
         accountantName,
         isLoaded,
-        login,
-        loginAsViewer,
         logout,
         isAccountant: role === "accountant" || role === "admin",
         isAdmin: role === "admin",
