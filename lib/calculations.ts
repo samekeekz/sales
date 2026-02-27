@@ -1,6 +1,8 @@
-import type { SaleRecord, AppSettings, DriverSummary, DebtRecord, DebtSummary, DeliveryGroup } from "./types"
+import type { SaleRecord, DriverSummary, DebtRecord, DebtSummary, DeliveryGroup } from "./types"
 
-export function getCommissionRate(totalQuantity: number, settings: AppSettings): number {
+type CommissionSettings = { commissionThreshold: number; lowRate: number; highRate: number }
+
+export function getCommissionRate(totalQuantity: number, settings: CommissionSettings): number {
   return totalQuantity >= settings.commissionThreshold ? settings.highRate : settings.lowRate
 }
 
@@ -9,7 +11,7 @@ export function calculateCommission(amount: number, rate: number): number {
 }
 
 // Per-product commission: each product type has its own quantity → rate → commission
-export function getDriverSummaries(sales: SaleRecord[], settings: AppSettings): DriverSummary[] {
+export function getDriverSummaries(sales: SaleRecord[], settings: CommissionSettings): DriverSummary[] {
   // Group all sales by driver
   const byDriver = new Map<string, SaleRecord[]>()
   for (const sale of sales) {

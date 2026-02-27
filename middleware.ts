@@ -1,6 +1,6 @@
-import { neonAuthMiddleware } from "@neondatabase/auth/next/server"
+import { auth } from "@/lib/auth/server"
 
-export default neonAuthMiddleware({ loginUrl: "/login" })
+export default auth.middleware({ loginUrl: "/login" })
 
 export const config = {
   matcher: ["/dashboard/:path*"],

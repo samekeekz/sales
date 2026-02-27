@@ -60,8 +60,10 @@ export async function updateAccountant(
   if (params.name || params.email) {
     const { error } = await authServer.admin.updateUser({
       userId: authUserId,
-      ...(params.name && { name: params.name }),
-      ...(params.email && { email: params.email }),
+      data: {
+        ...(params.name && { name: params.name }),
+        ...(params.email && { email: params.email }),
+      },
     })
     if (error) return { error: error.message }
   }
