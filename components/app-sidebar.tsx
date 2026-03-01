@@ -29,6 +29,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { Badge } from "@/components/ui/badge"
 
@@ -121,6 +122,11 @@ function getRoleLabel(role: string | null, accountantName: string | null): strin
 export function AppSidebar() {
   const pathname = usePathname()
   const { isAdmin, role, accountantName, logout } = useAuth()
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  function closeMobile() {
+    if (isMobile) setOpenMobile(false)
+  }
 
   const filteredItems = navItems.filter((item) => hasAccess(role, item.minRole))
 
@@ -130,7 +136,7 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard">
+              <Link href="/dashboard" onClick={closeMobile}>
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <TruckIcon className="h-4 w-4" />
                 </div>
@@ -157,7 +163,7 @@ export function AppSidebar() {
                     isActive={pathname === item.href}
                     tooltip={item.title}
                   >
-                    <Link href={item.href}>
+                    <Link href={item.href} onClick={closeMobile}>
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>
