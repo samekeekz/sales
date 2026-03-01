@@ -30,6 +30,7 @@ model app_settings {
   commission_threshold Decimal @default(200) @db.Decimal(12, 2)
   low_rate             Decimal @default(0.05) @db.Decimal(6, 4)
   high_rate            Decimal @default(0.07) @db.Decimal(6, 4)
+  commission_tiers     String? @db.Text
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.

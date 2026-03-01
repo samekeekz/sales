@@ -1,13 +1,25 @@
-import type { SaleRecord, DriverSummary, DebtRecord, DebtSummary, DeliveryGroup } from "./types"
+import type { SaleRecord, DriverSummary, DebtRecord, DebtSummary, DeliveryGroup, CommissionTier } from "./types"
 
-type CommissionSettings = { commissionThreshold: number; lowRate: number; highRate: number }
+type CommissionSettings = {
+  commissionThreshold: number
+  lowRate: number
+  highRate: number
+  commissionTiers?: CommissionTier[]
+}
 
 export function getCommissionRate(totalQuantity: number, settings: CommissionSettings): number {
+  const tiers = settings.commissionTiers
+  if (tiers && tiers.length > 0) {
+    const sorted = [...tiers].sort((a, b) => b.from - a.from)
+    const match = sorted.find((t) => totalQuantity >= t.from)
+    return match ? match.rate : sorted[sorted.length - 1].rate
+  }
   return totalQuantity >= settings.commissionThreshold ? settings.highRate : settings.lowRate
 }
 
+// Commission is rounded to whole tenge
 export function calculateCommission(amount: number, rate: number): number {
-  return Math.round(amount * rate * 100) / 100
+  return Math.round(amount * rate)
 }
 
 // Per-product commission: each product type has its own quantity → rate → commission
@@ -52,9 +64,20 @@ export function getDriverSummaries(sales: SaleRecord[], settings: CommissionSett
       if (rate > maxRate) maxRate = rate
     }
 
-    // progressToThreshold: based on the product with most quantity
+    // progressToThreshold: progress of leading product toward the next commission tier
     const maxQty = breakdown.reduce((m, b) => Math.max(m, b.quantity), 0)
-    const progressToThreshold = Math.min((maxQty / settings.commissionThreshold) * 100, 100)
+    const tiers = settings.commissionTiers
+    let nextTierFrom: number | null = null
+    if (tiers && tiers.length > 0) {
+      const sorted = [...tiers].sort((a, b) => a.from - b.from)
+      const next = sorted.find((t) => t.from > maxQty)
+      nextTierFrom = next ? next.from : null
+    } else {
+      nextTierFrom = maxQty < settings.commissionThreshold ? settings.commissionThreshold : null
+    }
+    const progressToThreshold = nextTierFrom
+      ? Math.min((maxQty / nextTierFrom) * 100, 100)
+      : 100
 
     summaries.push({
       driverName,

@@ -37,13 +37,19 @@ export interface AccountantUser {
   createdAt: string
 }
 
+export interface CommissionTier {
+  from: number   // minimum quantity (inclusive) for this rate to apply
+  rate: number   // decimal rate (e.g. 0.05 = 5%)
+}
+
 export interface AppSettings {
   // unitPrice removed — replaced by per-product pricing
   adminPassword: string
   accountants: AccountantUser[]
-  commissionThreshold: number
-  lowRate: number
-  highRate: number
+  commissionThreshold: number  // legacy — used as fallback when commissionTiers is empty
+  lowRate: number              // legacy
+  highRate: number             // legacy
+  commissionTiers: CommissionTier[]  // overrides threshold/lowRate/highRate when non-empty
 }
 
 export type UserRole = "admin" | "accountant"

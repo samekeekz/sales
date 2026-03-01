@@ -61,7 +61,7 @@ interface SaleFormProps {
   onSaleAdded?: () => void
 }
 
-const DEFAULT_SETTINGS = { commissionThreshold: 200, lowRate: 0.05, highRate: 0.07 }
+const DEFAULT_SETTINGS = { commissionThreshold: 200, lowRate: 0.05, highRate: 0.07, commissionTiers: [] as { from: number; rate: number }[] }
 
 export function SaleForm({ onSaleAdded }: SaleFormProps) {
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0])
@@ -131,7 +131,7 @@ export function SaleForm({ onSaleAdded }: SaleFormProps) {
       const rate = getCommissionRate(totalQty, settings)
       total += formQty * product.price * rate
     }
-    return Math.round(total * 100) / 100
+    return Math.round(total)
   }, [formQtyByProduct, weeklyQtyByProduct, products, settings])
 
   const totalFormQty = Array.from(formQtyByProduct.values()).reduce((s, v) => s + v, 0)

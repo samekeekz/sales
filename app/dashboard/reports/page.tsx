@@ -36,7 +36,7 @@ import {
 
 type Period = "week" | "month" | "custom"
 
-const DEFAULT_SETTINGS = { commissionThreshold: 200, lowRate: 0.05, highRate: 0.07 }
+const DEFAULT_SETTINGS = { commissionThreshold: 200, lowRate: 0.05, highRate: 0.07, commissionTiers: [] as { from: number; rate: number }[] }
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState<Period>("week")

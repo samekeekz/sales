@@ -44,7 +44,7 @@ import {
   formatCurrency,
 } from "@/lib/calculations"
 
-const DEFAULT_SETTINGS = { commissionThreshold: 200, lowRate: 0.05, highRate: 0.07 }
+const DEFAULT_SETTINGS = { commissionThreshold: 200, lowRate: 0.05, highRate: 0.07, commissionTiers: [] as { from: number; rate: number }[] }
 
 export default function DashboardPage() {
   const { isAccountant } = useAuth()

@@ -6,6 +6,8 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Table,
   TableBody,
@@ -18,7 +20,11 @@ import { ArrowLeftIcon } from "lucide-react"
 import { getSales } from "@/app/actions/sales"
 import { getDebts } from "@/app/actions/debts"
 import type { SaleRecord, DebtRecord } from "@/lib/types"
-import { groupByDelivery, formatNumber, formatCurrency } from "@/lib/calculations"
+import { groupByDelivery, formatNumber, formatCurrency, getMonthRange } from "@/lib/calculations"
+
+const { from: mFrom, to: mTo } = getMonthRange()
+const DEFAULT_FROM = mFrom.toISOString().split("T")[0]
+const DEFAULT_TO = mTo.toISOString().split("T")[0]
 
 export default function DriverProfilePage() {
   const params = useParams()
@@ -26,6 +32,8 @@ export default function DriverProfilePage() {
 
   const [sales, setSales] = useState<SaleRecord[]>([])
   const [debts, setDebts] = useState<DebtRecord[]>([])
+  const [dateFrom, setDateFrom] = useState(DEFAULT_FROM)
+  const [dateTo, setDateTo] = useState(DEFAULT_TO)
 
   useEffect(() => {
     Promise.all([getSales(), getDebts()]).then(([s, d]) => {
@@ -35,13 +43,15 @@ export default function DriverProfilePage() {
   }, [])
 
   const { groups, totalQty, totalAmt, totalComm } = useMemo(() => {
-    const driverSales = sales.filter((s) => s.driverName === driverName)
+    let driverSales = sales.filter((s) => s.driverName === driverName)
+    if (dateFrom) driverSales = driverSales.filter((s) => s.date >= dateFrom)
+    if (dateTo) driverSales = driverSales.filter((s) => s.date <= dateTo)
     const groups = groupByDelivery(driverSales)
     const totalQty = driverSales.reduce((s, r) => s + r.quantity, 0)
     const totalAmt = driverSales.reduce((s, r) => s + r.totalAmount, 0)
     const totalComm = driverSales.reduce((s, r) => s + r.commission, 0)
     return { groups, totalQty, totalAmt, totalComm }
-  }, [sales, driverName])
+  }, [sales, driverName, dateFrom, dateTo])
 
   return (
     <div className="flex flex-col gap-6">
@@ -57,6 +67,27 @@ export default function DriverProfilePage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground whitespace-nowrap">С</Label>
+          <Input
+            type="date"
+            className="w-36"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground whitespace-nowrap">По</Label>
+          <Input
+            type="date"
+            className="w-36"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+          />
+        </div>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
@@ -66,7 +97,7 @@ export default function DriverProfilePage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{formatNumber(totalQty)}</p>
-            <p className="text-xs text-muted-foreground mt-1">единиц за всё время</p>
+            <p className="text-xs text-muted-foreground mt-1">единиц за период</p>
           </CardContent>
         </Card>
         <Card>
@@ -77,7 +108,7 @@ export default function DriverProfilePage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{formatCurrency(totalAmt)}</p>
-            <p className="text-xs text-muted-foreground mt-1">за все поставки</p>
+            <p className="text-xs text-muted-foreground mt-1">за выбранный период</p>
           </CardContent>
         </Card>
         <Card>
@@ -88,14 +119,14 @@ export default function DriverProfilePage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold text-primary">{formatCurrency(totalComm)}</p>
-            <p className="text-xs text-muted-foreground mt-1">за все поставки</p>
+            <p className="text-xs text-muted-foreground mt-1">за выбранный период</p>
           </CardContent>
         </Card>
       </div>
 
       {groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
-          <p className="text-sm text-muted-foreground">Нет записей о поставках</p>
+          <p className="text-sm text-muted-foreground">Нет записей о поставках за выбранный период</p>
         </div>
       ) : (
         <div className="rounded-lg border overflow-x-auto">
