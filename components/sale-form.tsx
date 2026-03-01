@@ -131,7 +131,7 @@ export function SaleForm({ onSaleAdded }: SaleFormProps) {
       const rate = getCommissionRate(totalQty, settings)
       total += formQty * product.price * rate
     }
-    return Math.round(total)
+    return Math.floor(total / 10) * 10
   }, [formQtyByProduct, weeklyQtyByProduct, products, settings])
 
   const totalFormQty = Array.from(formQtyByProduct.values()).reduce((s, v) => s + v, 0)

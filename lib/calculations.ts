@@ -17,9 +17,9 @@ export function getCommissionRate(totalQuantity: number, settings: CommissionSet
   return totalQuantity >= settings.commissionThreshold ? settings.highRate : settings.lowRate
 }
 
-// Commission is rounded to whole tenge
+// Commission is rounded down to the nearest 10 tenge
 export function calculateCommission(amount: number, rate: number): number {
-  return Math.round(amount * rate)
+  return Math.floor(amount * rate / 10) * 10
 }
 
 // Per-product commission: each product type has its own quantity → rate → commission
