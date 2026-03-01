@@ -140,7 +140,7 @@ export function AppSidebar() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                   <TruckIcon className="h-4 w-4" />
                 </div>
-                <div className="flex flex-col gap-0.5 leading-none">
+                <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
                   <span className="font-semibold">{"Учёт продаж"}</span>
                   <span className="text-xs text-muted-foreground">
                     {getRoleLabel(role, accountantName)}
