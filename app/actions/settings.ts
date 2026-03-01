@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
+import { authServer } from "@/lib/auth/server"
 import { revalidatePath } from "next/cache"
 import type { AppSettings } from "@/lib/types"
 
@@ -22,6 +23,19 @@ export async function getSettings(): Promise<AppSettings> {
     lowRate: row.low_rate.toNumber(),
     highRate: row.high_rate.toNumber(),
   }
+}
+
+export async function changeAdminPassword(params: {
+  currentPassword: string
+  newPassword: string
+}): Promise<{ error?: string }> {
+  const { error } = await authServer.changePassword({
+    currentPassword: params.currentPassword,
+    newPassword: params.newPassword,
+    revokeOtherSessions: false,
+  })
+  if (error) return { error: error.message }
+  return {}
 }
 
 export async function updateSettings(updates: Partial<Omit<AppSettings, "accountants">>): Promise<void> {

@@ -32,9 +32,9 @@ export async function createAccountant(params: {
   password: string
 }): Promise<{ error?: string }> {
   const { data, error } = await authServer.admin.createUser({
-    email: params.email,
-    password: params.password,
-    name: params.name,
+      email: params.email,
+      password: params.password,
+      name: params.name,
     role: "user",
   })
 

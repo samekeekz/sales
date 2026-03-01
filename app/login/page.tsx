@@ -7,11 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { TruckIcon, LockIcon } from "lucide-react"
+import { TruckIcon, LockIcon, EyeIcon, EyeOffIcon } from "lucide-react"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
@@ -71,17 +72,30 @@ export default function LoginPage() {
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="password">Пароль</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value)
-                    setError("")
-                  }}
-                  placeholder="Введите пароль"
-                  autoComplete="current-password"
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      setError("")
+                    }}
+                    placeholder="Введите пароль"
+                    autoComplete="current-password"
+                    className="pr-9"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full w-9 text-muted-foreground"
+                    onClick={() => setShowPassword((v) => !v)}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                  </Button>
+                </div>
                 {error && <p className="text-sm text-destructive">{error}</p>}
               </div>
               <Button type="submit" size="lg" className="w-full gap-2" disabled={isLoading}>

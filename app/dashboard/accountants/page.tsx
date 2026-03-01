@@ -31,7 +31,7 @@ import {
   deleteAccountant,
   type AccountantProfile,
 } from "@/app/actions/accountants"
-import { PlusIcon, TrashIcon, PencilIcon } from "lucide-react"
+import { PlusIcon, TrashIcon, PencilIcon, EyeIcon, EyeOffIcon, CopyIcon, CheckIcon } from "lucide-react"
 
 export default function AccountantsPage() {
   const { isAdmin } = useAuth()
@@ -42,10 +42,15 @@ export default function AccountantsPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
+  const [showCreatePassword, setShowCreatePassword] = useState(false)
+  const [createdPassword, setCreatedPassword] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState("")
   const [editEmail, setEditEmail] = useState("")
   const [editPassword, setEditPassword] = useState("")
+  const [showEditPassword, setShowEditPassword] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const loadData = useCallback(async () => {
@@ -174,13 +179,26 @@ export default function AccountantsPage() {
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="accPassword">Пароль</Label>
-                <Input
-                  id="accPassword"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Временный пароль"
-                />
+                <div className="relative">
+                  <Input
+                    id="accPassword"
+                    type={showCreatePassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Временный пароль"
+                    className="pr-9"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-0 top-0 h-full w-9 text-muted-foreground"
+                    onClick={() => setShowCreatePassword((v) => !v)}
+                    tabIndex={-1}
+                  >
+                    {showCreatePassword ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
             </div>
             <Button type="submit" className="gap-1 w-fit">
@@ -276,13 +294,26 @@ export default function AccountantsPage() {
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="editPwd">Новый пароль (оставьте пустым, чтобы не менять)</Label>
-              <Input
-                id="editPwd"
-                type="password"
-                value={editPassword}
-                onChange={(e) => setEditPassword(e.target.value)}
-                placeholder="Новый пароль (необязательно)"
-              />
+              <div className="relative">
+                <Input
+                  id="editPwd"
+                  type={showEditPassword ? "text" : "password"}
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Новый пароль (необязательно)"
+                  className="pr-9"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full w-9 text-muted-foreground"
+                  onClick={() => setShowEditPassword((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showEditPassword ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -291,6 +322,41 @@ export default function AccountantsPage() {
             </Button>
             <Button onClick={handleSaveEdit}>
               Сохранить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Show created password once */}
+      <Dialog open={!!createdPassword} onOpenChange={(open) => { if (!open) { setCreatedPassword(null); setCopied(false) } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Бухгалтер добавлен</DialogTitle>
+            <DialogDescription>
+              Сохраните пароль — он больше не будет показан
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-2">
+            <div className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+              <span className="flex-1 font-mono text-sm select-all">{createdPassword}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={() => {
+                  navigator.clipboard.writeText(createdPassword ?? "")
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
+                }}
+              >
+                {copied ? <CheckIcon className="h-4 w-4 text-green-500" /> : <CopyIcon className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => { setCreatedPassword(null); setCopied(false) }}>
+              Я сохранил пароль
             </Button>
           </DialogFooter>
         </DialogContent>

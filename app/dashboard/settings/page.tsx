@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
-import { getSettings, updateSettings } from "@/app/actions/settings"
+import { getSettings, updateSettings, changeAdminPassword } from "@/app/actions/settings"
+import { EyeIcon, EyeOffIcon } from "lucide-react"
 
 export default function SettingsPage() {
   const { isAdmin } = useAuth()
@@ -18,6 +19,12 @@ export default function SettingsPage() {
   const [threshold, setThreshold] = useState("")
   const [lowRate, setLowRate] = useState("")
   const [highRate, setHighRate] = useState("")
+
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [showCurrent, setShowCurrent] = useState(false)
+  const [showNew, setShowNew] = useState(false)
 
   useEffect(() => {
     if (!isAdmin) {
@@ -56,6 +63,21 @@ export default function SettingsPage() {
 
     await updateSettings({ commissionThreshold: thresh, lowRate: low, highRate: high })
     toast.success("Настройки сохранены")
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault()
+    if (!newPassword) { toast.error("Введите новый пароль"); return }
+    if (newPassword !== confirmPassword) { toast.error("Пароли не совпадают"); return }
+    if (newPassword.length < 8) { toast.error("Пароль должен быть не менее 8 символов"); return }
+
+    const result = await changeAdminPassword({ currentPassword, newPassword })
+    if (result.error) { toast.error(result.error); return }
+
+    toast.success("Пароль изменён")
+    setCurrentPassword("")
+    setNewPassword("")
+    setConfirmPassword("")
   }
 
   if (!isAdmin) return null
@@ -123,6 +145,75 @@ export default function SettingsPage() {
 
             <Button type="submit" className="w-full">
               Сохранить настройки
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Смена пароля</CardTitle>
+          <CardDescription>Изменить пароль учётной записи администратора</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleChangePassword} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="currentPwd">Текущий пароль</Label>
+              <div className="relative">
+                <Input
+                  id="currentPwd"
+                  type={showCurrent ? "text" : "password"}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Введите текущий пароль"
+                  className="pr-9"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full w-9 text-muted-foreground"
+                  onClick={() => setShowCurrent((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showCurrent ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="newPwd">Новый пароль</Label>
+              <div className="relative">
+                <Input
+                  id="newPwd"
+                  type={showNew ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Минимум 8 символов"
+                  className="pr-9"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full w-9 text-muted-foreground"
+                  onClick={() => setShowNew((v) => !v)}
+                  tabIndex={-1}
+                >
+                  {showNew ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="confirmPwd">Подтвердите новый пароль</Label>
+              <Input
+                id="confirmPwd"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Повторите новый пароль"
+              />
+            </div>
+            <Button type="submit" className="w-full">
+              Сменить пароль
             </Button>
           </form>
         </CardContent>
