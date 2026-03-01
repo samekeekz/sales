@@ -26,6 +26,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { PlusIcon, TrashIcon } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
 import { getStores, addStore, deleteStore } from "@/app/actions/stores"
@@ -43,6 +44,7 @@ export default function StoresPage() {
   const [newName, setNewName] = useState("")
   const [newAddress, setNewAddress] = useState("")
   const [newPhone, setNewPhone] = useState("")
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [stores, setStores] = useState<Store[]>([])
   const [debts, setDebts] = useState<DebtRecord[]>([])
 
@@ -53,9 +55,15 @@ export default function StoresPage() {
   }, [isAccountant, router])
 
   const loadData = useCallback(async () => {
-    const [s, d] = await Promise.all([getStores(), getDebts()])
-    setStores(s)
-    setDebts(d)
+    setStatus("loading")
+    try {
+      const [s, d] = await Promise.all([getStores(), getDebts()])
+      setStores(s)
+      setDebts(d)
+      setStatus("success")
+    } catch {
+      setStatus("error")
+    }
   }, [])
 
   useEffect(() => {
@@ -160,7 +168,18 @@ export default function StoresPage() {
         </CardContent>
       </Card>
 
-      {stores.length === 0 ? (
+      {status === "loading" ? (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : status === "error" ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
+          <p className="text-sm text-muted-foreground">Не удалось загрузить список магазинов</p>
+          <Button variant="outline" size="sm" onClick={loadData}>Повторить</Button>
+        </div>
+      ) : stores.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
           <p className="text-sm text-muted-foreground">Магазины ещё не добавлены</p>
         </div>

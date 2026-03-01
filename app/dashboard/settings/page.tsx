@@ -11,11 +11,14 @@ import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
 import { getSettings, updateSettings, changeAdminPassword } from "@/app/actions/settings"
 import { EyeIcon, EyeOffIcon } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useCallback } from "react"
 
 export default function SettingsPage() {
   const { isAdmin } = useAuth()
   const router = useRouter()
 
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [threshold, setThreshold] = useState("")
   const [lowRate, setLowRate] = useState("")
   const [highRate, setHighRate] = useState("")
@@ -26,17 +29,26 @@ export default function SettingsPage() {
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
 
+  const loadSettings = useCallback(async () => {
+    setStatus("loading")
+    try {
+      const settings = await getSettings()
+      setThreshold(settings.commissionThreshold.toString())
+      setLowRate((settings.lowRate * 100).toString())
+      setHighRate((settings.highRate * 100).toString())
+      setStatus("success")
+    } catch {
+      setStatus("error")
+    }
+  }, [])
+
   useEffect(() => {
     if (!isAdmin) {
       router.push("/dashboard")
       return
     }
-    getSettings().then((settings) => {
-      setThreshold(settings.commissionThreshold.toString())
-      setLowRate((settings.lowRate * 100).toString())
-      setHighRate((settings.highRate * 100).toString())
-    })
-  }, [isAdmin, router])
+    loadSettings()
+  }, [isAdmin, router, loadSettings])
 
   async function handleSaveGeneral(e: React.FormEvent) {
     e.preventDefault()
@@ -99,54 +111,71 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSaveGeneral} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="threshold">Порог для повышенной ставки (ед.)</Label>
-              <Input
-                id="threshold"
-                type="number"
-                min="1"
-                value={threshold}
-                onChange={(e) => setThreshold(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                При достижении этого количества единиц за неделю, ставка комиссии повышается
-              </p>
+          {status === "loading" ? (
+            <div className="flex flex-col gap-4">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-px w-full" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+              <Skeleton className="h-9 w-full" />
             </div>
-
-            <Separator />
-
-            <div className="grid gap-4 sm:grid-cols-2">
+          ) : status === "error" ? (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <p className="text-sm text-muted-foreground">Не удалось загрузить настройки</p>
+              <Button variant="outline" size="sm" onClick={loadSettings}>Повторить</Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSaveGeneral} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="lowRate">Базовая ставка (%)</Label>
+                <Label htmlFor="threshold">Порог для повышенной ставки (ед.)</Label>
                 <Input
-                  id="lowRate"
+                  id="threshold"
                   type="number"
                   min="1"
-                  max="99"
-                  step="0.1"
-                  value={lowRate}
-                  onChange={(e) => setLowRate(e.target.value)}
+                  value={threshold}
+                  onChange={(e) => setThreshold(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">
+                  При достижении этого количества единиц за неделю, ставка комиссии повышается
+                </p>
               </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="highRate">Повышенная ставка (%)</Label>
-                <Input
-                  id="highRate"
-                  type="number"
-                  min="1"
-                  max="99"
-                  step="0.1"
-                  value={highRate}
-                  onChange={(e) => setHighRate(e.target.value)}
-                />
-              </div>
-            </div>
 
-            <Button type="submit" className="w-full">
-              Сохранить настройки
-            </Button>
-          </form>
+              <Separator />
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="lowRate">Базовая ставка (%)</Label>
+                  <Input
+                    id="lowRate"
+                    type="number"
+                    min="1"
+                    max="99"
+                    step="0.1"
+                    value={lowRate}
+                    onChange={(e) => setLowRate(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="highRate">Повышенная ставка (%)</Label>
+                  <Input
+                    id="highRate"
+                    type="number"
+                    min="1"
+                    max="99"
+                    step="0.1"
+                    value={highRate}
+                    onChange={(e) => setHighRate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full">
+                Сохранить настройки
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
       <Card>

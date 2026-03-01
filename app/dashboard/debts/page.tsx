@@ -42,6 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { TrashIcon, CheckIcon, CreditCardIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
 import { getStores } from "@/app/actions/stores"
@@ -68,6 +69,7 @@ export default function DebtsPage() {
   const [payNote, setPayNote] = useState("")
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null)
 
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [debts, setDebts] = useState<DebtRecord[]>([])
   const [stores, setStores] = useState<Store[]>([])
   const [allPayments, setAllPayments] = useState<PaymentRecord[]>([])
@@ -79,10 +81,16 @@ export default function DebtsPage() {
   }, [isAccountant, router])
 
   const loadData = useCallback(async () => {
-    const [d, s, p] = await Promise.all([getDebts(), getStores(), getPayments()])
-    setDebts(d)
-    setStores(s)
-    setAllPayments(p)
+    setStatus("loading")
+    try {
+      const [d, s, p] = await Promise.all([getDebts(), getStores(), getPayments()])
+      setDebts(d)
+      setStores(s)
+      setAllPayments(p)
+      setStatus("success")
+    } catch {
+      setStatus("error")
+    }
   }, [])
 
   useEffect(() => {
@@ -167,36 +175,48 @@ export default function DebtsPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Общий остаток долга
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className={`text-2xl font-bold ${totalOutstanding > 0 ? "text-destructive" : "text-muted-foreground"}`}>
-              {totalOutstanding > 0 ? formatCurrency(totalOutstanding) : "—"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">непогашенные остатки</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Магазинов с долгами
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className={`text-2xl font-bold ${storesWithDebt > 0 ? "text-destructive" : "text-muted-foreground"}`}>
-              {storesWithDebt > 0 ? storesWithDebt : "—"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">из {stores.length} магазинов</p>
-          </CardContent>
-        </Card>
-      </div>
+      {status === "loading" ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+        </div>
+      ) : status === "error" ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
+          <p className="text-sm text-muted-foreground">Не удалось загрузить данные о долгах</p>
+          <Button variant="outline" size="sm" onClick={loadData}>Повторить</Button>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Общий остаток долга
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className={`text-2xl font-bold ${totalOutstanding > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                {totalOutstanding > 0 ? formatCurrency(totalOutstanding) : "—"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">непогашенные остатки</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Магазинов с долгами
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className={`text-2xl font-bold ${storesWithDebt > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                {storesWithDebt > 0 ? storesWithDebt : "—"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">из {stores.length} магазинов</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      <div className="flex flex-wrap gap-3">
+      {status === "success" && <div className="flex flex-wrap gap-3">
         <Select value={filterStore} onValueChange={setFilterStore}>
           <SelectTrigger className="w-44">
             <SelectValue placeholder="Все магазины" />
@@ -250,9 +270,9 @@ export default function DebtsPage() {
             Сбросить
           </Button>
         )}
-      </div>
+      </div>}
 
-      {filtered.length === 0 ? (
+      {status === "success" && (filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
           <CreditCardIcon className="h-8 w-8 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground">
@@ -406,7 +426,7 @@ export default function DebtsPage() {
             </TableBody>
           </Table>
         </div>
-      )}
+      ))}
 
       <Dialog open={!!payingDebt} onOpenChange={(open) => !open && setPayingDebt(null)}>
         <DialogContent>

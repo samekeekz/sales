@@ -32,12 +32,14 @@ import {
   type AccountantProfile,
 } from "@/app/actions/accountants"
 import { PlusIcon, TrashIcon, PencilIcon, EyeIcon, EyeOffIcon, CopyIcon, CheckIcon } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function AccountantsPage() {
   const { isAdmin } = useAuth()
   const router = useRouter()
 
   const [accountants, setAccountants] = useState<AccountantProfile[]>([])
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -54,8 +56,14 @@ export default function AccountantsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
 
   const loadData = useCallback(async () => {
-    const data = await getAccountants()
-    setAccountants(data)
+    setStatus("loading")
+    try {
+      const data = await getAccountants()
+      setAccountants(data)
+      setStatus("success")
+    } catch {
+      setStatus("error")
+    }
   }, [])
 
   useEffect(() => {
@@ -216,7 +224,18 @@ export default function AccountantsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {accountants.length === 0 ? (
+          {status === "loading" ? (
+            <div className="flex flex-col gap-2 py-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
+              ))}
+            </div>
+          ) : status === "error" ? (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <p className="text-sm text-muted-foreground">Не удалось загрузить список бухгалтеров</p>
+              <Button variant="outline" size="sm" onClick={loadData}>Повторить</Button>
+            </div>
+          ) : accountants.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-8">
               Бухгалтеры ещё не добавлены. Добавьте первого бухгалтера выше.
             </p>
@@ -227,7 +246,7 @@ export default function AccountantsPage() {
                   <TableHead>Имя</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Дата создания</TableHead>
-                  <TableHead className="w-[100px] text-right">Действия</TableHead>
+                  <TableHead className="w-25 text-right">Действия</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

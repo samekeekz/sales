@@ -35,6 +35,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { PlusIcon, PencilIcon, TrashIcon, RotateCcwIcon } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
 import { getProducts, addProduct, updateProduct, softDeleteProduct, restoreProduct } from "@/app/actions/products"
@@ -53,6 +54,7 @@ export default function ProductsPage() {
   const [newPrice, setNewPrice] = useState("")
   const [showDeleted, setShowDeleted] = useState(false)
   const [editProduct, setEditProduct] = useState<{ id: string; name: string; price: string } | null>(null)
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [products, setProducts] = useState<Product[]>([])
 
   useEffect(() => {
@@ -60,8 +62,14 @@ export default function ProductsPage() {
   }, [isAdmin, router])
 
   const loadData = useCallback(async () => {
-    const all = await getProducts()
-    setProducts(all)
+    setStatus("loading")
+    try {
+      const all = await getProducts()
+      setProducts(all)
+      setStatus("success")
+    } catch {
+      setStatus("error")
+    }
   }, [])
 
   useEffect(() => {
@@ -159,7 +167,18 @@ export default function ProductsPage() {
         </CardContent>
       </Card>
 
-      {displayed.length === 0 ? (
+      {status === "loading" ? (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : status === "error" ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
+          <p className="text-sm text-muted-foreground">Не удалось загрузить список товаров</p>
+          <Button variant="outline" size="sm" onClick={loadData}>Повторить</Button>
+        </div>
+      ) : displayed.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
           <p className="text-sm text-muted-foreground">Товары ещё не добавлены</p>
         </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { DownloadIcon } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { ReportTable } from "@/components/report-table"
 import { getSales } from "@/app/actions/sales"
 import { getSettings } from "@/app/actions/settings"
@@ -41,17 +42,27 @@ export default function ReportsPage() {
   const [period, setPeriod] = useState<Period>("week")
   const [customFrom, setCustomFrom] = useState("")
   const [customTo, setCustomTo] = useState("")
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [sales, setSales] = useState<SaleRecord[]>([])
   const [debts, setDebts] = useState<DebtRecord[]>([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
 
-  useEffect(() => {
-    Promise.all([getSales(), getDebts(), getSettings()]).then(([s, d, st]) => {
+  const loadData = useCallback(async () => {
+    setStatus("loading")
+    try {
+      const [s, d, st] = await Promise.all([getSales(), getDebts(), getSettings()])
       setSales(s)
       setDebts(d)
       setSettings(st)
-    })
+      setStatus("success")
+    } catch {
+      setStatus("error")
+    }
   }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const { summaries, periodLabel, debtSummaries, totalOutstanding } = useMemo(() => {
     let from: Date
@@ -92,7 +103,7 @@ export default function ReportsPage() {
             Сводные отчёты по поставкам, комиссиям и долгам магазинов
           </p>
         </div>
-        {summaries.length > 0 && (
+        {status === "success" && summaries.length > 0 && (
           <Button
             variant="outline"
             className="gap-2"
@@ -142,10 +153,23 @@ export default function ReportsPage() {
 
       <div>
         <h2 className="text-base font-semibold mb-3 text-foreground">Комиссии водителей</h2>
-        <ReportTable summaries={summaries} threshold={settings.commissionThreshold} />
+        {status === "loading" ? (
+          <div className="flex flex-col gap-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-12 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : status === "error" ? (
+          <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-10 text-center">
+            <p className="text-sm text-muted-foreground">Не удалось загрузить отчёт</p>
+            <Button variant="outline" size="sm" onClick={loadData}>Повторить</Button>
+          </div>
+        ) : (
+          <ReportTable summaries={summaries} threshold={settings.commissionThreshold} />
+        )}
       </div>
 
-      <div>
+      {status === "success" && <div>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-base font-semibold text-foreground">Непогашенные долги магазинов</h2>
           {totalOutstanding > 0 && (
@@ -203,7 +227,7 @@ export default function ReportsPage() {
             </Table>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }

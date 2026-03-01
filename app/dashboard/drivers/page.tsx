@@ -27,6 +27,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { PlusIcon, TrashIcon } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
 import { getDrivers, addDriver, deleteDriver } from "@/app/actions/drivers"
@@ -42,6 +43,7 @@ export default function DriversPage() {
   const { isAccountant } = useAuth()
   const router = useRouter()
   const [newName, setNewName] = useState("")
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [sales, setSales] = useState<SaleRecord[]>([])
 
@@ -52,9 +54,15 @@ export default function DriversPage() {
   }, [isAccountant, router])
 
   const loadData = useCallback(async () => {
-    const [dr, s] = await Promise.all([getDrivers(), getSales()])
-    setDrivers(dr)
-    setSales(s)
+    setStatus("loading")
+    try {
+      const [dr, s] = await Promise.all([getDrivers(), getSales()])
+      setDrivers(dr)
+      setSales(s)
+      setStatus("success")
+    } catch {
+      setStatus("error")
+    }
   }, [])
 
   useEffect(() => {
@@ -131,7 +139,18 @@ export default function DriversPage() {
         </CardContent>
       </Card>
 
-      {drivers.length === 0 ? (
+      {status === "loading" ? (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : status === "error" ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
+          <p className="text-sm text-muted-foreground">Не удалось загрузить список водителей</p>
+          <Button variant="outline" size="sm" onClick={loadData}>Повторить</Button>
+        </div>
+      ) : drivers.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
           <p className="text-sm text-muted-foreground">Водители ещё не добавлены</p>
         </div>

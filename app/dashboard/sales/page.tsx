@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -12,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { SalesTable } from "@/components/sales-table"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/components/auth-provider"
 import { getSales } from "@/app/actions/sales"
 import { getDrivers } from "@/app/actions/drivers"
@@ -29,17 +31,24 @@ export default function SalesPage() {
   const [dateFrom, setDateFrom] = useState("")
   const [dateTo, setDateTo] = useState("")
 
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [sales, setSales] = useState<SaleRecord[]>([])
   const [debts, setDebts] = useState<DebtRecord[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [stores, setStores] = useState<Store[]>([])
 
   const loadData = useCallback(async () => {
-    const [s, d, dr, st] = await Promise.all([getSales(), getDebts(), getDrivers(), getStores()])
-    setSales(s)
-    setDebts(d)
-    setDrivers(dr)
-    setStores(st)
+    setStatus("loading")
+    try {
+      const [s, d, dr, st] = await Promise.all([getSales(), getDebts(), getDrivers(), getStores()])
+      setSales(s)
+      setDebts(d)
+      setDrivers(dr)
+      setStores(st)
+      setStatus("success")
+    } catch {
+      setStatus("error")
+    }
   }, [])
 
   useEffect(() => {
@@ -132,12 +141,25 @@ export default function SalesPage() {
         </CardContent>
       </Card>
 
-      <SalesTable
-        groups={groups}
-        debts={debts}
-        isAccountant={isAccountant}
-        onDelete={loadData}
-      />
+      {status === "loading" ? (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : status === "error" ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
+          <p className="text-sm text-muted-foreground">Не удалось загрузить поставки</p>
+          <Button variant="outline" size="sm" onClick={loadData}>Повторить</Button>
+        </div>
+      ) : (
+        <SalesTable
+          groups={groups}
+          debts={debts}
+          isAccountant={isAccountant}
+          onDelete={loadData}
+        />
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PlusCircleIcon, AlertTriangleIcon } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   BarChart,
   Bar,
@@ -47,21 +48,29 @@ const DEFAULT_SETTINGS = { commissionThreshold: 200, lowRate: 0.05, highRate: 0.
 
 export default function DashboardPage() {
   const { isAccountant } = useAuth()
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [sales, setSales] = useState<SaleRecord[]>([])
   const [debts, setDebts] = useState<DebtRecord[]>([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [drivers, setDrivers] = useState<Driver[]>([])
 
-  useEffect(() => {
-    Promise.all([getSales(), getDebts(), getSettings(), getDrivers()]).then(
-      ([s, d, st, dr]) => {
-        setSales(s)
-        setDebts(d)
-        setSettings(st)
-        setDrivers(dr)
-      }
-    )
+  const loadData = useCallback(async () => {
+    setStatus("loading")
+    try {
+      const [s, d, st, dr] = await Promise.all([getSales(), getDebts(), getSettings(), getDrivers()])
+      setSales(s)
+      setDebts(d)
+      setSettings(st)
+      setDrivers(dr)
+      setStatus("success")
+    } catch {
+      setStatus("error")
+    }
   }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const {
     summaries,
@@ -125,14 +134,27 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <MetricsCards
-        totalQuantity={totalQuantity}
-        totalAmount={totalAmount}
-        totalCommission={totalCommission}
-        driversCount={drivers.length}
-      />
+      {status === "loading" ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-lg" />
+          ))}
+        </div>
+      ) : status === "error" ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
+          <p className="text-sm text-muted-foreground">Не удалось загрузить данные</p>
+          <Button variant="outline" size="sm" onClick={loadData}>Повторить</Button>
+        </div>
+      ) : (
+        <MetricsCards
+          totalQuantity={totalQuantity}
+          totalAmount={totalAmount}
+          totalCommission={totalCommission}
+          driversCount={drivers.length}
+        />
+      )}
 
-      {isAccountant && debtSummaries.length > 0 && (
+      {status === "success" && isAccountant && debtSummaries.length > 0 && (
         <Card className="border-yellow-300 bg-yellow-50/50 dark:border-yellow-700 dark:bg-yellow-950/20">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
@@ -185,7 +207,7 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      {status === "success" && <div className="grid gap-6 lg:grid-cols-2">
         <SalesChart sales={sales} />
 
         <Card>
@@ -236,9 +258,9 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </div>}
 
-      <Card>
+      {status === "success" && <Card>
         <CardHeader>
           <CardTitle className="text-base">Топ водителей за неделю</CardTitle>
         </CardHeader>
@@ -276,7 +298,7 @@ export default function DashboardPage() {
             </Table>
           )}
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   )
 }
