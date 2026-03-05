@@ -130,7 +130,7 @@ export function SalesChart({ sales }: SalesChartProps) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">Поставки</CardTitle>
           <div className="flex items-center gap-1">
@@ -148,7 +148,7 @@ export function SalesChart({ sales }: SalesChartProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0 px-3 pb-3">
         <div className="h-[320px]">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData}>
@@ -189,13 +189,13 @@ export function SalesChart({ sales }: SalesChartProps) {
                 <ReferenceLine
                   yAxisId="qty"
                   y={dailyAverage}
-                  stroke="hsl(var(--chart-4))"
+                  stroke="#9ca3af"
                   strokeDasharray="4 2"
                   label={{
                     value: `Ср. ${dailyAverage} ед.`,
                     position: "insideTopRight",
                     fontSize: 10,
-                    fill: "hsl(var(--muted-foreground))",
+                    fill: "#6b7280",
                   }}
                 />
               )}
@@ -205,10 +205,10 @@ export function SalesChart({ sales }: SalesChartProps) {
                     key={entry.date}
                     fill={
                       entry.quantity === 0
-                        ? "hsl(var(--muted))"
+                        ? "#e5e7eb"
                         : entry.quantity >= dailyAverage
-                        ? "hsl(var(--chart-1))"
-                        : "hsl(var(--chart-2))"
+                        ? "#22c55e"
+                        : "#f59e0b"
                     }
                   />
                 ))}
@@ -217,7 +217,7 @@ export function SalesChart({ sales }: SalesChartProps) {
                 dataKey="amount"
                 yAxisId="amt"
                 type="monotone"
-                stroke="hsl(var(--chart-3))"
+                stroke="#3b82f6"
                 strokeWidth={2}
                 dot={false}
                 name="amount"

@@ -23,7 +23,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
+  LabelList,
 } from "recharts"
 import { MetricsCards } from "@/components/metrics-cards"
 import { SalesChart } from "@/components/sales-chart"
@@ -80,9 +80,11 @@ export default function DashboardPage() {
     debtSummaries,
     totalOutstanding,
     monthDriverData,
+    weekLabel,
   } = useMemo(() => {
     const { from: weekFrom, to: weekTo } = getWeekRange()
     const { from: monthFrom, to: monthTo } = getMonthRange()
+    const weekLabel = `${weekFrom.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} — ${weekTo.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}`
 
     const weekSales = filterSalesByDateRange(sales, weekFrom, weekTo)
     const monthSales = filterSalesByDateRange(sales, monthFrom, monthTo)
@@ -112,6 +114,7 @@ export default function DashboardPage() {
       debtSummaries,
       totalOutstanding,
       monthDriverData,
+      weekLabel,
     }
   }, [sales, debts, settings])
 
@@ -211,10 +214,10 @@ export default function DashboardPage() {
         <SalesChart sales={sales} />
 
         <Card>
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle className="text-base">Доставки по водителям за месяц</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0 px-3 pb-3">
             {monthDriverData.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 Нет данных за текущий месяц
@@ -225,7 +228,7 @@ export default function DashboardPage() {
                   <BarChart
                     data={monthDriverData}
                     layout="vertical"
-                    margin={{ left: 8, right: 24, top: 4, bottom: 4 }}
+                    margin={{ left: 0, right: 56, top: 4, bottom: 4 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" horizontal={false} />
                     <XAxis
@@ -247,10 +250,13 @@ export default function DashboardPage() {
                       formatter={(value: number) => [`${formatNumber(value)} ед.`, "Поставлено"]}
                       contentStyle={{ fontSize: 12, borderRadius: 8 }}
                     />
-                    <Bar dataKey="quantity" radius={[0, 4, 4, 0]}>
-                      {monthDriverData.map((_, i) => (
-                        <Cell key={i} fill={`hsl(var(--chart-${(i % 5) + 1}))`} />
-                      ))}
+                    <Bar dataKey="quantity" radius={[0, 4, 4, 0]} fill="#3b82f6">
+                      <LabelList
+                        dataKey="quantity"
+                        position="right"
+                        formatter={(v: number) => `${formatNumber(v)} ед.`}
+                        style={{ fontSize: 11, fill: "#6b7280" }}
+                      />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -262,7 +268,10 @@ export default function DashboardPage() {
 
       {status === "success" && <Card>
         <CardHeader>
-          <CardTitle className="text-base">Топ водителей за неделю</CardTitle>
+          <div>
+              <CardTitle className="text-base">Топ водителей за неделю</CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">{weekLabel}</p>
+            </div>
         </CardHeader>
         <CardContent>
           {summaries.length === 0 ? (
