@@ -6,13 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { MobileSelect } from "@/components/mobile-select"
 import { PlusIcon, TrashIcon, StoreIcon } from "lucide-react"
 import { toast } from "sonner"
 import { getSales, addDelivery } from "@/app/actions/sales"
@@ -64,7 +58,10 @@ interface SaleFormProps {
 const DEFAULT_SETTINGS = { commissionThreshold: 200, lowRate: 0.05, highRate: 0.07, commissionTiers: [] as { from: number; rate: number }[] }
 
 export function SaleForm({ onSaleAdded }: SaleFormProps) {
-  const [date, setDate] = useState(() => new Date().toISOString().split("T")[0])
+  const [date, setDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+  })
   const [selectedDriver, setSelectedDriver] = useState("")
   const [newDriverName, setNewDriverName] = useState("")
   const [isAddingDriver, setIsAddingDriver] = useState(false)
@@ -291,16 +288,14 @@ export function SaleForm({ onSaleAdded }: SaleFormProps) {
                 <Label>Водитель</Label>
                 {!isAddingDriver ? (
                   <div className="flex gap-2">
-                    <Select value={selectedDriver} onValueChange={setSelectedDriver}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Выберите водителя" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {drivers.map((d) => (
-                          <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MobileSelect
+                      value={selectedDriver}
+                      onValueChange={setSelectedDriver}
+                      placeholder="Выберите водителя"
+                      label="Водитель"
+                      className="flex-1 min-w-0"
+                      options={drivers.map((d) => ({ value: d.name, label: d.name }))}
+                    />
                     <Button
                       type="button"
                       variant="outline"
@@ -361,20 +356,17 @@ export function SaleForm({ onSaleAdded }: SaleFormProps) {
               </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              <Select value={sec.storeId} onValueChange={(v) => updateSection(sec.id, { storeId: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите магазин" />
-                </SelectTrigger>
-                <SelectContent>
-                  {stores.length === 0 ? (
-                    <SelectItem value="__empty__" disabled>
-                      Нет магазинов — добавьте в разделе "Магазины"
-                    </SelectItem>
-                  ) : (
-                    stores.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)
-                  )}
-                </SelectContent>
-              </Select>
+              <MobileSelect
+                value={sec.storeId}
+                onValueChange={(v) => updateSection(sec.id, { storeId: v })}
+                placeholder="Выберите магазин"
+                label="Магазин"
+                options={
+                  stores.length === 0
+                    ? [{ value: "__empty__", label: 'Нет магазинов — добавьте в разделе "Магазины"', disabled: true }]
+                    : stores.map((s) => ({ value: s.id, label: s.name }))
+                }
+              />
 
               <div className="flex flex-col gap-2">
                 {sec.lines.map((line) => {
@@ -383,27 +375,18 @@ export function SaleForm({ onSaleAdded }: SaleFormProps) {
                   const lineAmount = product ? qty * product.price : 0
                   return (
                     <div key={line.id} className="flex items-center gap-2">
-                      <Select
+                      <MobileSelect
                         value={line.productId}
                         onValueChange={(v) => updateLine(sec.id, line.id, { productId: v })}
-                      >
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Товар" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {products.length === 0 ? (
-                            <SelectItem value="__empty__" disabled>
-                              Нет товаров — добавьте в разделе "Товары"
-                            </SelectItem>
-                          ) : (
-                            products.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name} — {formatCurrency(p.price)}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Товар"
+                        label="Товар"
+                        className="flex-1 min-w-0"
+                        options={
+                          products.length === 0
+                            ? [{ value: "__empty__", label: 'Нет товаров — добавьте в разделе "Товары"', disabled: true }]
+                            : products.map((p) => ({ value: p.id, label: `${p.name} — ${formatCurrency(p.price)}` }))
+                        }
+                      />
                       <Input
                         type="number"
                         min="1"

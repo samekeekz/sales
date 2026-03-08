@@ -64,7 +64,7 @@ export function SalesTable({ groups, debts, isAccountant, onDelete }: SalesTable
   return (
     <div className="rounded-lg border overflow-x-auto">
       <Table>
-        <TableHeader>
+        <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
             <TableHead>Дата</TableHead>
             <TableHead>Водитель</TableHead>

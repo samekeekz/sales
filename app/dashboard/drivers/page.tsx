@@ -26,7 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { PlusIcon, TrashIcon } from "lucide-react"
+import { PlusIcon, TrashIcon, ChevronRightIcon } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
@@ -107,15 +107,15 @@ export default function DriversPage() {
   if (!isAccountant) return null
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
+    <div className="flex flex-col gap-4 h-[calc(100svh-5.5rem)] md:h-[calc(100svh-6.5rem)]">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Водители</h1>
         <p className="text-sm text-muted-foreground">
           Управление списком водителей и их статистика
         </p>
       </div>
 
-      <Card>
+      <Card className="shrink-0">
         <CardHeader>
           <CardTitle className="text-base">Добавить водителя</CardTitle>
           <CardDescription>Добавьте нового водителя в систему</CardDescription>
@@ -140,30 +140,31 @@ export default function DriversPage() {
       </Card>
 
       {status === "loading" ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 shrink-0">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-12 w-full rounded-lg" />
           ))}
         </div>
       ) : status === "error" ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
+        <div className="flex-1 min-h-0 flex flex-col items-center gap-3 rounded-lg border border-dashed text-center justify-center">
           <p className="text-sm text-muted-foreground">Не удалось загрузить список водителей</p>
           <Button variant="outline" size="sm" onClick={loadData}>Повторить</Button>
         </div>
       ) : drivers.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center rounded-lg border border-dashed">
           <p className="text-sm text-muted-foreground">Водители ещё не добавлены</p>
         </div>
       ) : (
-        <div className="rounded-lg border">
+        <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
                 <TableHead>Имя</TableHead>
                 <TableHead className="text-right">Всего продаж (ед.)</TableHead>
                 <TableHead className="text-right">Сумма продаж</TableHead>
                 <TableHead className="text-right">Комиссия</TableHead>
                 <TableHead className="text-right">Добавлен</TableHead>
+                <TableHead className="w-10 text-center text-xs text-muted-foreground">Отчёт</TableHead>
                 <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
@@ -171,20 +172,21 @@ export default function DriversPage() {
               {drivers.map((driver) => {
                 const stats = driverStats.get(driver.name) || { totalQty: 0, totalAmt: 0, totalComm: 0 }
                 return (
-                  <TableRow key={driver.id}>
-                    <TableCell className="font-medium">
-                      <Link
-                        href={`/dashboard/drivers/${encodeURIComponent(driver.name)}`}
-                        className="hover:underline"
-                      >
-                        {driver.name}
-                      </Link>
-                    </TableCell>
+                  <TableRow key={driver.id} className="group">
+                    <TableCell className="font-medium">{driver.name}</TableCell>
                     <TableCell className="text-right">{formatNumber(stats.totalQty)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(stats.totalAmt)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(stats.totalComm)}</TableCell>
                     <TableCell className="text-right text-muted-foreground">
                       {new Date(driver.createdAt).toLocaleDateString("ru-RU")}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                        <Link href={`/dashboard/drivers/${encodeURIComponent(driver.name)}`}>
+                          <ChevronRightIcon className="h-4 w-4" />
+                          <span className="sr-only">Отчёт по {driver.name}</span>
+                        </Link>
+                      </Button>
                     </TableCell>
                     <TableCell>
                       <AlertDialog>

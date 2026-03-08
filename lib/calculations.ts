@@ -203,27 +203,60 @@ export function filterDebtsByDateRange(debts: DebtRecord[], from: Date, to: Date
   return debts.filter((d) => d.deliveryDate >= fromStr && d.deliveryDate <= toStr)
 }
 
-export function exportToCSV(summaries: DriverSummary[], periodLabel: string): void {
-  const headers = ["Водитель", "Товар", "Кол-во (ед.)", "Сумма", "Ставка", "Комиссия"]
-  const rows: string[][] = []
+function downloadAsExcel(tableHTML: string, filename: string): void {
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"></head><body>${tableHTML}</body></html>`
+  const blob = new Blob(["\uFEFF" + html], { type: "application/vnd.ms-excel;charset=utf-8" })
+  const link = document.createElement("a")
+  link.href = URL.createObjectURL(blob)
+  link.download = filename + ".xls"
+  link.click()
+  URL.revokeObjectURL(link.href)
+}
+
+export function exportCommissionsToExcel(summaries: DriverSummary[], periodLabel: string): void {
+  const th = (s: string) => `<th style="background:#e2e8f0;font-weight:bold;padding:6px 10px;border:1px solid #cbd5e1">${s}</th>`
+  const td = (s: string, bold = false) => `<td style="${bold ? "font-weight:bold;" : ""}padding:6px 10px;border:1px solid #e2e8f0">${s}</td>`
+
+  const header = `<tr>${th("Водитель")}${th("Товар")}${th("Кол-во (ед.)")}${th("Сумма (тг)")}${th("Ставка")}${th("Комиссия (тг)")}</tr>`
+  const rows: string[] = []
 
   for (const s of summaries) {
     if (s.productBreakdown.length === 0) {
-      rows.push([s.driverName, "—", s.totalQuantity.toString(), s.totalAmount.toFixed(2), `${(s.commissionRate * 100).toFixed(0)}%`, s.totalCommission.toFixed(2)])
+      rows.push(`<tr>${td(s.driverName)}${td("—")}${td(s.totalQuantity.toString())}${td(s.totalAmount.toFixed(2))}${td(`${(s.commissionRate * 100).toFixed(0)}%`)}${td(s.totalCommission.toFixed(2))}</tr>`)
     } else {
       for (const p of s.productBreakdown) {
-        rows.push([s.driverName, p.productName, p.quantity.toString(), p.amount.toFixed(2), `${(p.commissionRate * 100).toFixed(0)}%`, p.commission.toFixed(2)])
+        rows.push(`<tr>${td(s.driverName)}${td(p.productName)}${td(p.quantity.toString())}${td(p.amount.toFixed(2))}${td(`${(p.commissionRate * 100).toFixed(0)}%`)}${td(p.commission.toFixed(2))}</tr>`)
       }
-      rows.push([s.driverName, "ИТОГО", s.totalQuantity.toString(), s.totalAmount.toFixed(2), "", s.totalCommission.toFixed(2)])
+      rows.push(`<tr style="background:#f8fafc">${td(s.driverName, true)}${td("ИТОГО", true)}${td(s.totalQuantity.toString(), true)}${td(s.totalAmount.toFixed(2), true)}${td("")}${td(s.totalCommission.toFixed(2), true)}</tr>`)
     }
   }
 
-  const csvContent = [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n")
-  const BOM = "\uFEFF"
-  const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" })
-  const link = document.createElement("a")
-  link.href = URL.createObjectURL(blob)
-  link.download = `отчет_${periodLabel}_${new Date().toISOString().split("T")[0]}.csv`
-  link.click()
-  URL.revokeObjectURL(link.href)
+  const totalQty = summaries.reduce((s, d) => s + d.totalQuantity, 0)
+  const totalAmt = summaries.reduce((s, d) => s + d.totalAmount, 0)
+  const totalComm = summaries.reduce((s, d) => s + d.totalCommission, 0)
+  rows.push(`<tr style="background:#dbeafe">${td("ОБЩИЙ ИТОГ", true)}${td("")}${td(totalQty.toString(), true)}${td(totalAmt.toFixed(2), true)}${td("")}${td(totalComm.toFixed(2), true)}</tr>`)
+
+  const today = new Date().toISOString().split("T")[0]
+  downloadAsExcel(`<table>${header}${rows.join("")}</table>`, `комиссии_${periodLabel}_${today}`)
+}
+
+export function exportDebtsToExcel(debtSummaries: DebtSummary[], totalOutstanding: number): void {
+  const th = (s: string) => `<th style="background:#e2e8f0;font-weight:bold;padding:6px 10px;border:1px solid #cbd5e1">${s}</th>`
+  const td = (s: string, bold = false) => `<td style="${bold ? "font-weight:bold;" : ""}padding:6px 10px;border:1px solid #e2e8f0">${s}</td>`
+
+  const header = `<tr>${th("Магазин")}${th("Долгов")}${th("Старейший долг")}${th("Сумма (тг)")}</tr>`
+  const rows: string[] = []
+
+  for (const s of debtSummaries) {
+    const oldest = s.oldestUnpaidDate
+      ? new Date(s.oldestUnpaidDate + "T00:00:00").toLocaleDateString("ru-RU")
+      : "—"
+    rows.push(`<tr>${td(s.storeName)}${td(s.unpaidCount.toString())}${td(oldest)}${td(s.totalDebt.toFixed(2))}</tr>`)
+  }
+
+  const totalCount = debtSummaries.reduce((s, d) => s + d.unpaidCount, 0)
+  rows.push(`<tr style="background:#fee2e2">${td("ИТОГО", true)}${td(totalCount.toString(), true)}${td("")}${td(totalOutstanding.toFixed(2), true)}</tr>`)
+
+  const today = new Date().toISOString().split("T")[0]
+  downloadAsExcel(`<table>${header}${rows.join("")}</table>`, `долги_${today}`)
 }

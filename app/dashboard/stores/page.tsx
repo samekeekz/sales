@@ -124,15 +124,15 @@ export default function StoresPage() {
   if (!isAccountant) return null
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
+    <div className="flex flex-col gap-4 h-[calc(100svh-5.5rem)] md:h-[calc(100svh-6.5rem)]">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Магазины</h1>
         <p className="text-sm text-muted-foreground">
           Управление списком магазинов и учёт долгов
         </p>
       </div>
 
-      <Card>
+      <Card className="shrink-0">
         <CardHeader>
           <CardTitle className="text-base">Добавить магазин</CardTitle>
           <CardDescription>Добавьте новый магазин в систему</CardDescription>
@@ -169,24 +169,24 @@ export default function StoresPage() {
       </Card>
 
       {status === "loading" ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 shrink-0">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-12 w-full rounded-lg" />
           ))}
         </div>
       ) : status === "error" ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
+        <div className="flex-1 min-h-0 flex flex-col items-center gap-3 rounded-lg border border-dashed text-center justify-center">
           <p className="text-sm text-muted-foreground">Не удалось загрузить список магазинов</p>
           <Button variant="outline" size="sm" onClick={loadData}>Повторить</Button>
         </div>
       ) : stores.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center rounded-lg border border-dashed">
           <p className="text-sm text-muted-foreground">Магазины ещё не добавлены</p>
         </div>
       ) : (
-        <div className="rounded-lg border">
+        <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
                 <TableHead>Название</TableHead>
                 <TableHead className="hidden sm:table-cell">Адрес</TableHead>

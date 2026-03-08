@@ -20,7 +20,7 @@ interface TierRow {
 
 function tiersToRows(tiers: CommissionTier[]): TierRow[] {
   const sorted = [...tiers].sort((a, b) => a.from - b.from)
-  return sorted.map((t) => ({ from: t.from.toString(), rate: (t.rate * 100).toString() }))
+  return sorted.map((t) => ({ from: t.from.toString(), rate: parseFloat((t.rate * 100).toPrecision(10)).toString() }))
 }
 
 export default function SettingsPage() {
@@ -93,7 +93,7 @@ export default function SettingsPage() {
         return
       }
       if (parsed[i].rate <= parsed[i - 1].rate) {
-        toast.error(`Ставка ${i + 1}: процент должен быть выше предыдущего (${parsed[i - 1].rate * 100}%)`)
+        toast.error(`Ставка ${i + 1}: процент должен быть выше предыдущего (${parseFloat((parsed[i - 1].rate * 100).toPrecision(10))}%)`)
         return
       }
     }

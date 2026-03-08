@@ -54,8 +54,8 @@ export default function DriverProfilePage() {
   }, [sales, driverName, dateFrom, dateTo])
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-4 h-[calc(100svh-5.5rem)] md:h-[calc(100svh-6.5rem)]">
+      <div className="shrink-0 flex items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/dashboard/drivers">
             <ArrowLeftIcon className="h-4 w-4" />
@@ -67,7 +67,7 @@ export default function DriverProfilePage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="shrink-0 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <Label className="text-sm text-muted-foreground whitespace-nowrap">С</Label>
           <Input
@@ -88,7 +88,7 @@ export default function DriverProfilePage() {
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="shrink-0 grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -125,13 +125,13 @@ export default function DriverProfilePage() {
       </div>
 
       {groups.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
+        <div className="flex-1 min-h-0 flex flex-col items-center justify-center rounded-lg border border-dashed">
           <p className="text-sm text-muted-foreground">Нет записей о поставках за выбранный период</p>
         </div>
       ) : (
-        <div className="rounded-lg border overflow-x-auto">
+        <div className="flex-1 min-h-0 overflow-auto rounded-lg border">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
                 <TableHead>Дата</TableHead>
                 <TableHead>Магазин</TableHead>

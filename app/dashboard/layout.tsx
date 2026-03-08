@@ -32,7 +32,7 @@ function DashboardGuard({ children }: { children: React.ReactNode }) {
             Система учёта продаж
           </h2>
         </header>
-        <div className="flex-1 overflow-auto p-4 md:p-6">
+        <div className="flex-1 overflow-auto p-4 md:p-6 bg-muted/30">
           {children}
         </div>
       </SidebarInset>
