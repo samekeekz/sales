@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import type { DriverSummary } from "@/lib/types"
 import { formatNumber, formatCurrency } from "@/lib/calculations"
 
@@ -26,9 +27,15 @@ export function ReportTable({ summaries, threshold }: ReportTableProps) {
 
   if (summaries.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
-        <p className="text-sm text-muted-foreground">Нет данных за выбранный период</p>
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>Нет данных за выбранный период</EmptyTitle>
+          <EmptyDescription>
+            Попробуйте изменить даты или снять часть фильтров, чтобы увидеть отчёт по водителям.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent />
+      </Empty>
     )
   }
 

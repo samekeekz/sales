@@ -27,6 +27,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -41,7 +47,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { TrashIcon, CheckIcon, CreditCardIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react"
+import {
+  TrashIcon,
+  CheckIcon,
+  CreditCardIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  MoreHorizontal as MoreHorizontalIcon,
+} from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
@@ -288,7 +301,6 @@ export default function DebtsPage() {
                 <TableHead>Магазин</TableHead>
                 <TableHead className="text-right">Остаток</TableHead>
                 <TableHead className="text-center">Статус</TableHead>
-                <TableHead className="hidden sm:table-cell text-right">Оплачен</TableHead>
                 <TableHead className="w-32" />
               </TableRow>
             </TableHeader>
@@ -328,9 +340,6 @@ export default function DebtsPage() {
                           <Badge variant="destructive">Не оплачен</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell text-right text-muted-foreground text-sm">
-                        {debt.paidAt ? new Date(debt.paidAt).toLocaleDateString("ru-RU") : "—"}
-                      </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
                           {payments.length > 0 && (
@@ -348,29 +357,36 @@ export default function DebtsPage() {
                               {payments.length}
                             </Button>
                           )}
-                          {debt.status === "unpaid" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-green-600"
-                              onClick={() => openPayDialog(debt)}
-                              title="Записать оплату"
-                            >
-                              <CheckIcon className="h-4 w-4" />
-                              <span className="sr-only">Оплатить</span>
-                            </Button>
-                          )}
                           <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              >
-                                <TrashIcon className="h-4 w-4" />
-                                <span className="sr-only">Удалить</span>
-                              </Button>
-                            </AlertDialogTrigger>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                  title="Действия"
+                                >
+                                  <MoreHorizontalIcon className="h-4 w-4" />
+                                  <span className="sr-only">Действия</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {debt.status === "unpaid" && (
+                                  <DropdownMenuItem
+                                    onClick={() => openPayDialog(debt)}
+                                  >
+                                    <CheckIcon className="h-4 w-4" />
+                                    <span>Записать оплату</span>
+                                  </DropdownMenuItem>
+                                )}
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem variant="destructive">
+                                    <TrashIcon className="h-4 w-4" />
+                                    <span>Удалить</span>
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Удалить запись?</AlertDialogTitle>

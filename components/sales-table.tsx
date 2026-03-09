@@ -22,12 +22,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { TrashIcon } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { TrashIcon, MoreHorizontal as MoreHorizontalIcon } from "lucide-react"
 import { toast } from "sonner"
 import type { DeliveryGroup, DebtRecord } from "@/lib/types"
 import { deleteSalesByDeliveryId, deleteSale } from "@/app/actions/sales"
 import { deleteDebtByDeliveryId } from "@/app/actions/debts"
 import { formatNumber, formatCurrency } from "@/lib/calculations"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 
 interface SalesTableProps {
   groups: DeliveryGroup[]
@@ -55,9 +62,15 @@ export function SalesTable({ groups, debts, isAccountant, onDelete }: SalesTable
 
   if (groups.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
-        <p className="text-sm text-muted-foreground">Нет записей о поставках</p>
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>Нет записей о поставках</EmptyTitle>
+          <EmptyDescription>
+            Поставки ещё не записаны или фильтры не возвращают результатов. Измените период или критерии.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent />
+      </Empty>
     )
   }
 
@@ -117,22 +130,32 @@ export function SalesTable({ groups, debts, isAccountant, onDelete }: SalesTable
                   )}
                 </TableCell>
                 {isAccountant && (
-                  <TableCell>
+                  <TableCell className="text-right">
                     <AlertDialog
                       open={deletingId === group.deliveryId}
                       onOpenChange={(open) => !open && setDeletingId(null)}
                     >
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => setDeletingId(group.deliveryId)}
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                          <span className="sr-only">Удалить</span>
-                        </Button>
-                      </AlertDialogTrigger>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={() => setDeletingId(group.deliveryId)}
+                          >
+                            <MoreHorizontalIcon className="h-4 w-4" />
+                            <span className="sr-only">Действия</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <AlertDialogTrigger asChild>
+                            <DropdownMenuItem variant="destructive">
+                              <TrashIcon className="h-4 w-4" />
+                              <span>Удалить</span>
+                            </DropdownMenuItem>
+                          </AlertDialogTrigger>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Удалить поставку?</AlertDialogTitle>

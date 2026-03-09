@@ -25,7 +25,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { PlusIcon, TrashIcon } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { PlusIcon, TrashIcon, MoreHorizontal as MoreHorizontalIcon } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
@@ -33,6 +39,7 @@ import { getStores, addStore, deleteStore } from "@/app/actions/stores"
 import { getDebts } from "@/app/actions/debts"
 import type { Store, DebtRecord } from "@/lib/types"
 import { formatCurrency } from "@/lib/calculations"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 9)
@@ -175,14 +182,29 @@ export default function StoresPage() {
           ))}
         </div>
       ) : status === "error" ? (
-        <div className="flex-1 min-h-0 flex flex-col items-center gap-3 rounded-lg border border-dashed text-center justify-center">
-          <p className="text-sm text-muted-foreground">Не удалось загрузить список магазинов</p>
-          <Button variant="outline" size="sm" onClick={loadData}>Повторить</Button>
-        </div>
+        <Empty className="flex-1 min-h-0 border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>Не удалось загрузить список магазинов</EmptyTitle>
+            <EmptyDescription>
+              Проверьте подключение к сети и повторите попытку загрузки.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button variant="outline" size="sm" onClick={loadData}>
+              Повторить загрузку
+            </Button>
+          </EmptyContent>
+        </Empty>
       ) : stores.length === 0 ? (
-        <div className="flex-1 min-h-0 flex flex-col items-center justify-center rounded-lg border border-dashed">
-          <p className="text-sm text-muted-foreground">Магазины ещё не добавлены</p>
-        </div>
+        <Empty className="flex-1 min-h-0 border border-dashed">
+          <EmptyHeader>
+            <EmptyTitle>Магазины ещё не добавлены</EmptyTitle>
+            <EmptyDescription>
+              Добавьте первый магазин с помощью формы выше, чтобы начать учитывать долги.
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent />
+        </Empty>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border">
           <Table>
@@ -194,7 +216,7 @@ export default function StoresPage() {
                 <TableHead className="text-right">Текущий долг</TableHead>
                 <TableHead className="text-right">Долгов</TableHead>
                 <TableHead className="text-right">Добавлен</TableHead>
-                <TableHead className="w-10" />
+                <TableHead className="w-10 text-right" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -226,18 +248,35 @@ export default function StoresPage() {
                     <TableCell className="text-right text-muted-foreground">
                       {new Date(store.createdAt).toLocaleDateString("ru-RU")}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-right">
                       <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                            <span className="sr-only">Удалить</span>
-                          </Button>
-                        </AlertDialogTrigger>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              aria-label={`Действия для магазина ${store.name}`}
+                            >
+                              <MoreHorizontalIcon className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem
+                                variant="destructive"
+                                className={
+                                  storeDebtStats.get(store.id)?.unpaidCount
+                                    ? "opacity-50 cursor-not-allowed"
+                                    : ""
+                                }
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                                <span>Удалить</span>
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>Удалить магазин?</AlertDialogTitle>

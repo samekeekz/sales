@@ -25,7 +25,6 @@ import {
   ResponsiveContainer,
   LabelList,
 } from "recharts"
-import { MetricsCards } from "@/components/metrics-cards"
 import { SalesChart } from "@/components/sales-chart"
 import { useAuth } from "@/components/auth-provider"
 import { getSales } from "@/app/actions/sales"
@@ -43,6 +42,7 @@ import {
   formatNumber,
   formatCurrency,
 } from "@/lib/calculations"
+import { useSlowLoading } from "@/lib/hooks"
 
 const DEFAULT_SETTINGS = { commissionThreshold: 200, lowRate: 0.05, highRate: 0.07, commissionTiers: [] as { from: number; rate: number }[] }
 
@@ -53,6 +53,7 @@ export default function DashboardPage() {
   const [debts, setDebts] = useState<DebtRecord[]>([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [drivers, setDrivers] = useState<Driver[]>([])
+  const isSlow = useSlowLoading(status === "loading")
 
   const loadData = useCallback(async () => {
     setStatus("loading")
@@ -126,6 +127,11 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">
             Сводка за текущую неделю
           </p>
+          {isSlow && (
+            <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+              Загрузка занимает больше обычного, проверьте подключение или попробуйте обновить данные.
+            </p>
+          )}
         </div>
         {isAccountant && (
           <Button asChild>
@@ -137,24 +143,18 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {status === "loading" ? (
+      {status === "loading" && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-lg" />
           ))}
         </div>
-      ) : status === "error" ? (
+      )}
+      {status === "error" && (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-12 text-center">
           <p className="text-sm text-muted-foreground">Не удалось загрузить данные</p>
           <Button variant="outline" size="sm" onClick={loadData}>Повторить</Button>
         </div>
-      ) : (
-        <MetricsCards
-          totalQuantity={totalQuantity}
-          totalAmount={totalAmount}
-          totalCommission={totalCommission}
-          driversCount={drivers.length}
-        />
       )}
 
       {status === "success" && isAccountant && debtSummaries.length > 0 && (

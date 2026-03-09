@@ -31,8 +31,24 @@ import {
   deleteAccountant,
   type AccountantProfile,
 } from "@/app/actions/accountants"
-import { PlusIcon, TrashIcon, PencilIcon, EyeIcon, EyeOffIcon, CopyIcon, CheckIcon } from "lucide-react"
+import {
+  PlusIcon,
+  TrashIcon,
+  PencilIcon,
+  EyeIcon,
+  EyeOffIcon,
+  CopyIcon,
+  CheckIcon,
+  MoreHorizontal as MoreHorizontalIcon,
+} from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export default function AccountantsPage() {
   const { isAdmin } = useAuth()
@@ -231,14 +247,29 @@ export default function AccountantsPage() {
               ))}
             </div>
           ) : status === "error" ? (
-            <div className="flex flex-col items-center gap-3 py-8 text-center">
-              <p className="text-sm text-muted-foreground">Не удалось загрузить список бухгалтеров</p>
-              <Button variant="outline" size="sm" onClick={loadData}>Повторить</Button>
-            </div>
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyTitle>Не удалось загрузить список бухгалтеров</EmptyTitle>
+                <EmptyDescription>
+                  Проверьте подключение к сети и попробуйте обновить данные.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button variant="outline" size="sm" onClick={loadData}>
+                  Повторить загрузку
+                </Button>
+              </EmptyContent>
+            </Empty>
           ) : accountants.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">
-              Бухгалтеры ещё не добавлены. Добавьте первого бухгалтера выше.
-            </p>
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyTitle>Бухгалтеры ещё не добавлены</EmptyTitle>
+                <EmptyDescription>
+                  Добавьте первого бухгалтера с помощью формы выше, чтобы выдать доступ к панели.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent />
+            </Empty>
           ) : (
             <Table>
               <TableHeader>
@@ -246,7 +277,7 @@ export default function AccountantsPage() {
                   <TableHead>Имя</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Дата создания</TableHead>
-                  <TableHead className="w-25 text-right">Действия</TableHead>
+                  <TableHead className="w-16 text-right">Действия</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -258,26 +289,31 @@ export default function AccountantsPage() {
                       {new Date(acc.createdAt).toLocaleDateString("ru-RU")}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => openEdit(acc)}
-                          aria-label="Редактировать"
-                        >
-                          <PencilIcon className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => handleDelete(acc)}
-                          aria-label="Удалить"
-                        >
-                          <TrashIcon className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            aria-label={`Действия для бухгалтера ${acc.name}`}
+                          >
+                            <MoreHorizontalIcon className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEdit(acc)}>
+                            <PencilIcon className="h-3.5 w-3.5" />
+                            <span>Редактировать</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => handleDelete(acc)}
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                            <span>Удалить</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Progress } from "@/components/ui/progress"
+import { useSlowLoading } from "@/lib/hooks"
 import { getSales } from "@/app/actions/sales"
 import { getSettings } from "@/app/actions/settings"
 import { getDebts } from "@/app/actions/debts"
@@ -122,6 +123,7 @@ export default function ReportsPage() {
   const [customFrom, setCustomFrom] = useState(monthDefaults.from)
   const [customTo, setCustomTo] = useState(monthDefaults.to)
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
+  const isSlow = useSlowLoading(status === "loading")
   const [sales, setSales] = useState<SaleRecord[]>([])
   const [debts, setDebts] = useState<DebtRecord[]>([])
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
@@ -260,6 +262,11 @@ export default function ReportsPage() {
           <p className="text-xs text-muted-foreground hidden sm:block">
             Сводные отчёты по поставкам, комиссиям и долгам
           </p>
+          {isSlow && (
+            <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+              Загрузка данных занимает больше обычного. Если графики не появляются, попробуйте повторить загрузку.
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>

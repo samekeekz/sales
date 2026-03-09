@@ -34,7 +34,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { PlusIcon, PencilIcon, TrashIcon, RotateCcwIcon } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { PlusIcon, PencilIcon, TrashIcon, RotateCcwIcon, MoreHorizontal as MoreHorizontalIcon } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { toast } from "sonner"
 import { useAuth } from "@/components/auth-provider"
@@ -191,7 +197,7 @@ export default function ProductsPage() {
                 <TableHead className="text-right">Текущая цена</TableHead>
                 <TableHead className="text-right">Добавлен</TableHead>
                 <TableHead className="text-center">Статус</TableHead>
-                <TableHead className="w-20" />
+                <TableHead className="w-16 text-right" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -209,58 +215,64 @@ export default function ProductsPage() {
                       <Badge variant="secondary">Активен</Badge>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      {product.isDeleted ? (
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                          onClick={() => handleRestore(product.id, product.name)}
-                          title="Восстановить"
+                          aria-label={`Действия для товара ${product.name}`}
                         >
-                          <RotateCcwIcon className="h-4 w-4" />
+                          <MoreHorizontalIcon className="h-4 w-4" />
                         </Button>
-                      ) : (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => setEditProduct({ id: product.id, name: product.name, price: product.price.toString() })}
-                            title="Редактировать"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                title="Удалить (soft delete)"
-                              >
-                                <TrashIcon className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Удалить товар?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Товар &quot;{product.name}&quot; будет скрыт из формы поставки. Все существующие записи поставок с этим товаром сохранятся.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Отмена</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(product.id, product.name)}>
-                                  Удалить
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </>
-                      )}
-                    </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {product.isDeleted ? (
+                          <DropdownMenuItem onClick={() => handleRestore(product.id, product.name)}>
+                            <RotateCcwIcon className="h-4 w-4" />
+                            <span>Восстановить</span>
+                          </DropdownMenuItem>
+                        ) : (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                setEditProduct({
+                                  id: product.id,
+                                  name: product.name,
+                                  price: product.price.toString(),
+                                })
+                              }
+                            >
+                              <PencilIcon className="h-4 w-4" />
+                              <span>Редактировать</span>
+                            </DropdownMenuItem>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem variant="destructive">
+                                  <TrashIcon className="h-4 w-4" />
+                                  <span>Скрыть (soft delete)</span>
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Удалить товар?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Товар &quot;{product.name}&quot; будет скрыт из формы поставки. Все существующие записи поставок с этим товаром сохранятся.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDelete(product.id, product.name)}>
+                                    Удалить
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
